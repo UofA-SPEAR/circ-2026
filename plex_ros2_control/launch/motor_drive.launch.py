@@ -41,7 +41,7 @@ def generate_launch_description():
             " ",
             PathJoinSubstitution(
                 [
-                    FindPackageShare("ethercat_zeroerr"),
+                    FindPackageShare("plex_ethercat"),
                     "description/config",
                     description_file,
                 ]
@@ -52,7 +52,7 @@ def generate_launch_description():
 
     robot_controllers = PathJoinSubstitution(
         [
-            FindPackageShare("ethercat_zeroerr"),
+            FindPackageShare("plex_ros2_control"),
             "config",
             "controllers.yaml",
         ]
