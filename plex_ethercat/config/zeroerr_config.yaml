@@ -1,0 +1,79 @@
+# Configuration file for ZERO ERR drive
+vendor_id: 0x5A65726F
+product_id: 0x00029252
+assign_activate: 0x0300 # ZeroErr IGH reference: SYNC0 on, SYNC1 off.
+                        # 0x0000 disabled DC entirely → slaves can't reach OP (need SYNC0).
+                        # 0x003c was Beckhoff AMI8000 bits, wrong ESC type.
+auto_fault_reset: true  # FIX: drives fault with 0x0073 on startup; auto-reset clears it so CIA402 state machine can proceed
+
+sdo:
+  # SM2/SM3 sync type = DC SYNC0 (2). Manual 0x1C32:04=0x0005 → only FreeRun+DC SYNC0
+  # supported; SM Event (1) is not advertised and was causing SDO abort + misbehaviour.
+  # 0x1C32:0A (sub 10) is RO in DC mode — write may be ignored; ecrt_slave_config_dc
+  # sets the actual SYNC0 period. Keep the write for belt-and-suspenders.
+  - {index: 0x1C32, sub_index: 1, type: uint16, value: 2}       # SM2 sync type = DC SYNC0
+  - {index: 0x1C32, sub_index: 10, type: uint32, value: 1000000}   # SM2 cycle time = 1ms (may be RO)
+  - {index: 0x1C33, sub_index: 1, type: uint16, value: 2}       # SM3 sync type = DC SYNC0
+  - {index: 0x1C33, sub_index: 10, type: uint32, value: 1000000}   # SM3 cycle time = 1ms (may be RO)
+  # Mode of Operation = CSP (8). Reference code (IGH/SOEM) writes CSV (9) via SDO;
+  # if EEPROM stored CSV the drive ignores position PDOs and treats 0x60FF as primary command.
+  # 0x6060 cannot be PDO-mapped on this drive (IGH reference comments it out too) — SDO only.
+  - {index: 0x6060, sub_index: 0, type: uint8, value: 9}
+  - {index: 0x6080, sub_index: 0, type: uint32, value: 3000}    # max motor speed 3000 RPM
+  - {index: 0x606D, sub_index: 0, type: uint16, value: 5000}     # velocity error window 500 RPM
+  - {index: 0x606E, sub_index: 0, type: uint16, value: 1000}     # velocity error timeout 100ms
+
+
+rpdo:  # RxPDO = receive PDO Mapping
+  - index: 0x1600
+    channels:
+      - {index: 0x607a, sub_index: 0, type: int32, command_interface: position, factor: 83395.0, default: .nan}
+      - {index: 0x60fe, sub_index: 0, type: int32, default: 1}  # Digital Output Functionalities: bit0=1 disengages brake
+      - {index: 0x6040, sub_index: 0, type: uint16, default: 0}  # Control word
+      - {index: 0x60ff, sub_index: 0, type: int32, command_interface: velocity, factor: 83395.0, default: 0}  # Velocity feed-forward
+      - {index: 0x6071, sub_index: 0, type: int16, default: 0}  # Target torque
+
+tpdo:  # TxPDO = transmit PDO Mapping 
+  - index: 0x1A00
+    channels:
+      - {index: 0x6064, sub_index: 0, type: int32, state_interface: position, factor: 0.000011991}  # offset 0
+      - {index: 0x606c, sub_index: 0, type: int32, state_interface: velocity, factor: 0.000011991}  # offset 4
+      - {index: 0x60fd, sub_index: 0, type: int32, state_interface: digital_inputs}
+      - {index: 0x6079, sub_index: 0, type: int32, state_interface: bus_voltage}                    # offset 12
+      - {index: 0x606B, sub_index: 0, type: int32, state_interface: velocity_demand}                # offset 16
+      - {index: 0x60FC, sub_index: 0, type: int32, state_interface: position_demand}                # offset 20
+      - {index: 0x6077, sub_index: 0, type: int16, state_interface: effort}                         # offset 24
+      - {index: 0x6041, sub_index: 0, type: uint16, state_interface: status_word}
+      - {index: 0x6061, sub_index: 0, type: uint16, default: 9, state_interface: mode_of_operation}
+      - {index: 0x603F, sub_index: 0, type: uint16, state_interface: error_code}
+      - {index: 0x6078, sub_index: 0, type: int16, state_interface: current}                        # offset 32
+      - {index: 0x6074, sub_index: 0, type: int16, state_interface: torque_demand}                  # offset 34
+      - {index: 0x60B9, sub_index: 0, type: int16, state_interface: touch_probe_status}             # offset 36
+
+      
+sm:  # Sync Manager
+  - {index: 0, type: output, pdo: ~, watchdog: disable}
+  - {index: 1, type: input, pdo: ~, watchdog: disable}
+  - {index: 2, type: output, pdo: rpdo, watchdog: enable}
+  - {index: 3, type: input, pdo: tpdo, watchdog: disable}
+
+# <?xml version="1.0" ?>
+# <EtherCATInfo>
+#   <!-- Slave 0 -->
+#   <Vendor>
+#     <Id>1516597871</Id>
+#   </Vendor>
+#   <Descriptions>
+#     <Devices>
+#       <Device>
+#         <Type ProductCode="#x00029252" RevisionNo="#x00000001">ZeroErr Driver</Type>
+#         <Name><![CDATA[ZeroErr Driver]]></Name>
+#         <Sm Enable="1" StartAddress="#x1000" ControlByte="#x26" DefaultSize="128" />
+#         <Sm Enable="1" StartAddress="#x1080" ControlByte="#x22" DefaultSize="128" />
+#         <Sm Enable="1" StartAddress="#x1100" ControlByte="#x64" DefaultSize="0" />
+#         <Sm Enable="1" StartAddress="#x1400" ControlByte="#x20" DefaultSize="0" />
+#         
+#       </Device>
+#     </Devices>
+#   </Descriptions>
+# </EtherCATInfo>
