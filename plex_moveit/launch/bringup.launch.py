@@ -11,13 +11,6 @@ import yaml
 import os
 
 def generate_launch_description():
-
-    # Path to your ZeroErr EtherCAT configuration file
-    ethercat_config = os.path.join(
-        get_package_share_directory('plex_arm_urdf_3'),
-        'config',
-        'zeroerr_drive_config.yaml'
-    )
     
     rviz_config = os.path.join(
         get_package_share_directory("plex_arm_urdf_3"),
@@ -38,29 +31,6 @@ def generate_launch_description():
         package_name="plex_arm_urdf_3"
     ).to_moveit_configs()
 
-    ros2_controllers_path = os.path.join(
-        get_package_share_directory("plex_arm_urdf_3"),
-        "config", "ros2_controllers.yaml"
-    )
-
-    robot_state_publisher = Node(
-        package = 'robot_state_publisher',
-        executable = 'robot_state_publisher',
-        name = 'robot_state_publisher',
-        parameters = [
-        moveit_config.robot_description,
-        {'use_sim_time': True}],
-        output = 'screen'
-    )
-
-    joint_state_publisher_gui = Node(
-        package = 'joint_state_publisher_gui',
-        executable= 'joint_state_publisher_gui',
-        name = 'joint_state_publisher_gui',
-        parameters = [
-            moveit_config.robot_description,
-            {'use_sim_time': True,}]
-    )
 
     rviz_node = Node(
         package = 'rviz2',
@@ -75,35 +45,8 @@ def generate_launch_description():
         output ='screen'
     )
         
-    servo_params = servo_yaml['servo_node']['ros__parameters']
 
-    ros2_control_node = Node(
-        package="controller_manager",
-        executable="ros2_control_node",
-        output="screen",
-        parameters=[
-            ros2_controllers_path,
-            moveit_config.robot_description,
-        ],
-    )
 
-    joint_state_broadcaster_spawner = Node(
-        package="controller_manager",
-        executable="spawner",
-        arguments=["joint_state_broadcaster"],
-    )
-
-    arm_controller_spawner = Node(
-        package="controller_manager",
-        executable="spawner",
-        arguments=["plex_arm_controller"],
-    )
-
-    joy_node = Node(
-        package="joy",
-        executable="joy_node",
-        name="joy_node",
-    )
 
     gamepad_node = Node(
         package ="plex_arm_urdf_3",
@@ -116,6 +59,14 @@ def generate_launch_description():
         executable = "keyboard_to_servo",
         name= "keyboard_to_servo"
     )
+    
+    joy_node = Node(
+        package="joy",
+        executable="joy_node",
+        name="joy_node",
+    )
+
+    servo_params = servo_yaml['servo_node']['ros__parameters']
 
     servo_node = Node(
         package="moveit_servo",
@@ -151,16 +102,6 @@ def generate_launch_description():
         ]
     )
 
-    # Hardware Node definition
-    HW_control_node = Node(
-        package="controller_manager",
-        executable="ros2_control_node",
-        parameters=[
-            moveit_config.robot_description,
-            ethercat_config             
-        ],
-        output="screen",
-    )
 
     return LaunchDescription([
         # robot_state_publisher,
