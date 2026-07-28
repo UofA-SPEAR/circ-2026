@@ -1,8 +1,8 @@
 <?xml version="1.0"?>
 <robot xmlns:xacro="http://www.ros.org/wiki/xacro">
   <!-- ZeroErr eRob 5-axis EtherCAT ros2_control description -->
-  <xacro:macro name="ethercat_zeroerr">
-    <ros2_control name="ethercat_zeroerr" type="system">
+  <xacro:macro name="plex_ethercat">
+    <ros2_control name="plex_ethercat" type="system">
       <hardware>
         <plugin>ethercat_driver/EthercatDriver</plugin>
         <param name="master_id">0</param>
@@ -28,7 +28,7 @@
           <param name="alias">0</param>
           <param name="position">0</param>
           <param name="mode_of_operation">9</param>
-          <param name="slave_config">$(find ethercat_zeroerr)/config/zeroerr_config.yaml</param>
+          <param name="slave_config">$(find plex_ethercat)/config/zeroerr_config.yaml</param>
         </ec_module>
       </joint>
       <joint name="joint_2">
@@ -51,7 +51,7 @@
           <param name="alias">0</param>
           <param name="position">1</param>
           <param name="mode_of_operation">9</param>
-          <param name="slave_config">$(find ethercat_zeroerr)/config/zeroerr_config.yaml</param>
+          <param name="slave_config">$(find plex_ethercat)/config/zeroerr_config.yaml</param>
         </ec_module>
       </joint>
       <joint name="joint_3">
@@ -74,7 +74,7 @@
           <param name="alias">0</param>
           <param name="position">2</param>
           <param name="mode_of_operation">9</param>
-          <param name="slave_config">$(find ethercat_zeroerr)/config/zeroerr_config.yaml</param>
+          <param name="slave_config">$(find plex_ethercat)/config/zeroerr_config.yaml</param>
         </ec_module>
       </joint>
       <joint name="joint_4">
@@ -97,7 +97,7 @@
           <param name="alias">0</param>
           <param name="position">3</param>
           <param name="mode_of_operation">9</param>
-          <param name="slave_config">$(find ethercat_zeroerr)/config/zeroerr_config.yaml</param>
+          <param name="slave_config">$(find plex_ethercat)/config/zeroerr_config.yaml</param>
         </ec_module>
       </joint>
       <joint name="joint_5">
@@ -120,7 +120,7 @@
           <param name="alias">0</param>
           <param name="position">4</param>
           <param name="mode_of_operation">9</param>
-          <param name="slave_config">$(find ethercat_zeroerr)/config/zeroerr_config.yaml</param>
+          <param name="slave_config">$(find plex_ethercat)/config/zeroerr_config.yaml</param>
         </ec_module>
       </joint>
       <joint name="joint_6">
@@ -134,7 +134,7 @@
           <plugin>ethercat_generic_plugins/GenericEcSlave</plugin>
           <param name="alias">0</param>
           <param name="position">5</param>
-          <param name="slave_config">$(find ethercat_zeroerr)/config/stepper_config.yaml</param>
+          <param name="slave_config">$(find plex_ethercat)/config/stepper_config.yaml</param>
         </ec_module>
       </joint>
     </ros2_control>
