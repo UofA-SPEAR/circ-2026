@@ -13,13 +13,13 @@ import os
 def generate_launch_description():
     
     rviz_config = os.path.join(
-        get_package_share_directory("plex_arm_urdf_3"),
+        get_package_share_directory("plex_moveit"),
         'config', 
         'plex_arm_moveit.rviz'
     )
 
     servo_params_path = os.path.join(
-    get_package_share_directory("plex_arm_urdf_3"),
+    get_package_share_directory("plex_moveit"),
     "config", "servo_params.yaml"
     )
 
@@ -27,8 +27,8 @@ def generate_launch_description():
         servo_yaml = yaml.safe_load(f)
 
     moveit_config = MoveItConfigsBuilder(
-        "plex_arm_urdf_3", 
-        package_name="plex_arm_urdf_3"
+        "plex", 
+        package_name="plex_moveit"
     ).to_moveit_configs()
 
 
@@ -49,13 +49,13 @@ def generate_launch_description():
 
 
     gamepad_node = Node(
-        package ="plex_arm_urdf_3",
+        package ="plex_moveit",
         executable="gamepad_to_servo",
         name="gamepad_to_servo"
     )
 
     keyboard_node = Node(
-        package = "plex_arm_urdf_3",
+        package = "plex_moveit",
         executable = "keyboard_to_servo",
         name= "keyboard_to_servo"
     )
@@ -85,7 +85,7 @@ def generate_launch_description():
     move_group = IncludeLaunchDescription(
         PythonLaunchDescriptionSource(
             os.path.join(
-                get_package_share_directory("plex_arm_urdf_3"),
+                get_package_share_directory("plex_moveit"),
                 "launch", "move_group.launch.py"
             )
         )
@@ -104,17 +104,11 @@ def generate_launch_description():
 
 
     return LaunchDescription([
-        # robot_state_publisher,
-        # joint_state_publisher_gui,
         rviz_node,
-        # ros2_control_node,
-        # joint_state_broadcaster_spawner,
-        # arm_controller_spawner,
         # joy_node,
         gamepad_node,
         # keyboard_node,
         servo_node,
         move_group,
         start_servo,
-        # HW_control_node
     ])

@@ -4,6 +4,6 @@ from moveit_configs_utils.launches import generate_move_group_launch
 
 def generate_launch_description():
     moveit_config = MoveItConfigsBuilder(
-        "plex_arm_urdf_3", package_name="plex_arm_urdf_3"
+        "plex", package_name="plex_moveit"
     ).to_moveit_configs()
     return generate_move_group_launch(moveit_config)
