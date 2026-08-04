@@ -3022,6 +3022,7 @@ class AnimatedButton:
         self._last_w:     int = 0
         self._last_h:     int = 0
         self._last_phase: str = ''
+        self._last_bounds = None
         self._press_poly:QPolygonF = QPolygonF()
         self._last_override_phase: str = ''
         self._last_continuous_time: float = 0.0
@@ -4234,6 +4235,8 @@ class GraphDef:
     px2:             P                       = field(default_factory=P)
     series:          List[SeriesDef]         = field(default_factory=list)
     max_time:        Any                     = 10.0
+    start_display_time: Any                  = 0.0
+    end_display_time:   Any                  = None
     value_range:     Tuple[float, float]     = (0.0, 0.0)
     value_color:     QColor                  = QColor(255, 255, 255, 255)
     ease_dur:        float                   = 0.3
@@ -4244,21 +4247,25 @@ class GraphDef:
     step_count:      Any                     = 0
     size_minmax:     float                   = 10.0
     size_step:       float                   = 9.0
+    size_name:       float                   = 9.0
     label_align:     str                     = 'right'
-    stack:           bool                    = False
+    stack:           Any                     = False
     update_interval: float                   = 0.0
     hidden:          bool                    = False
+    phase_override:  Optional[Any]           = None
     visible_threshold_x: float = 0.0
     visible_threshold_y: float = 0.0
- 
+
 @dataclass
 class SeriesDef:
     value_fn:     Optional[Callable[[Any], Optional[float]]] = None
     data_fn:      Optional[Callable[[Any], List[float]]]     = None
+    name:         str     = ''                # NEW
     color:        QColor  = field(default_factory=lambda: QColor(255, 255, 255, 255))
     outline_width:   float   = 1.5
     fill_opacity: float   = 0.0
     smooth:       bool    = False
+
 
 class _SeriesState: 
     def __init__(self) -> None:
@@ -4284,7 +4291,40 @@ class AnimatedGraph:
         self._range_ease_t0:  float = 0.0
         self._range_easing:   bool  = False
         self._last_update_time: float = 0.0
- 
+
+        # cached per-frame resolved values (set at top of draw()/tick())
+        self._max_time_cached:          float = _resolve_numeric_value(defn.max_time, 10.0)
+        self._start_display_time:       float = 0.0
+        self._end_display_time:         float = self._max_time_cached
+        self._stack_cached:             bool  = False
+
+        # ── open/close fade state ──────────────────────────────────
+        self._base_phase:          str   = ''
+        self._fade_from:           float = 0.0
+        self._fade_to:             float = 0.0
+        self._fade_t0:             float = 0.0
+        self._fade_dur:            float = 0.5
+        self._last_override_phase: str   = ''
+
+    def set_phase(self, phase: str) -> None:
+        if phase not in ('open', 'close'):
+            return
+        if phase == self._base_phase:
+            return
+        self._base_phase = phase
+        now = time.monotonic()
+        self._fade_from = self._current_fade(now)
+        self._fade_to   = 1.0 if phase == 'open' else 0.0
+        self._fade_t0   = now
+
+    def _current_fade(self, now: float) -> float:
+        if self._fade_dur <= 0.0:
+            return self._fade_to
+        t = (now - self._fade_t0) / self._fade_dur
+        t = max(0.0, min(1.0, t))
+        v = _ease(t, QEasingCurve.OutQuint)
+        return self._fade_from + (self._fade_to - self._fade_from) * v
+
     def _screen_rect(self, ww: int, wh: int) -> Tuple[float, float, float, float]:
         d  = self.defn
         x1 = d.p1.x * ww + d.px1.x
@@ -4292,9 +4332,35 @@ class AnimatedGraph:
         x2 = d.p2.x * ww + d.px2.x
         y2 = d.p2.y * wh + d.px2.y
         return x1, y1, x2 - x1, y2 - y1
- 
+
+    def _refresh_time_window(self) -> None:
+        d = self.defn
+        self._max_time_cached = max(0.0001, _resolve_numeric_value(d.max_time, 10.0))
+        s = _resolve_numeric_value(d.start_display_time, 0.0)
+        if d.end_display_time is None:
+            e = self._max_time_cached
+        else:
+            e = _resolve_numeric_value(d.end_display_time, self._max_time_cached)
+        if s > e:
+            s, e = e, s
+        self._start_display_time = s
+        self._end_display_time   = e
+        self._stack_cached = _resolve_bool_value(d.stack)
+
     def _time_to_x(self, abs_t: float, now: float, left: float, width: float) -> float:
-        return left + (1.0 - (now - abs_t) / self._max_time) * width
+        span = self._end_display_time - self._start_display_time
+        if span <= 0:
+            return left + width
+        left_time = now - self._end_display_time
+        return left + (abs_t - left_time) / span * width
+
+    def _x_to_time(self, x: float, now: float, left: float, width: float) -> float:
+        span = self._end_display_time - self._start_display_time
+        if span <= 0 or width <= 0:
+            return now - self._start_display_time
+        left_time = now - self._end_display_time
+        frac = (x - left) / width
+        return left_time + frac * span
 
     def _value_to_y(self, value: float, top: float, height: float, lo: float, hi: float) -> float:
         ratio = (value - lo) / (hi - lo) if hi != lo else 0.5
@@ -4302,10 +4368,8 @@ class AnimatedGraph:
 
     @property
     def _max_time(self) -> float:
-        mt = self.defn.max_time
-        return float(mt()) if callable(mt) else float(mt)
- 
- 
+        return self._max_time_cached
+
     def _tip_display_value(self, st: _SeriesState, now: float) -> Optional[float]:
         if st.tip_committed is None:
             return None
@@ -4317,7 +4381,7 @@ class AnimatedGraph:
             return st.tip_committed
         v = _ease(elapsed / dur, self.defn.ease_type)
         return st.tip_start + (st.tip_committed - st.tip_start) * v
- 
+
     def _push_value(self, st: _SeriesState, value: float, now: float) -> None:
         if st.tip_committed is None:
             st.tip_committed = value
@@ -4326,25 +4390,23 @@ class AnimatedGraph:
             st.tip_t0        = now
             st.waypoints.append((now, value))
             return
- 
+
         cur = self._tip_display_value(st, now)
         st.tip_start     = cur if cur is not None else st.tip_committed
         st.tip_display   = st.tip_start
         st.tip_committed = value
         st.tip_t0        = now
- 
+
         st.waypoints.append((now, value))
- 
         self._prune(st, now)
- 
+
     def _prune(self, st: _SeriesState, now: float) -> None:
-        cutoff  = now - self._max_time
+        cutoff  = now - max(self._max_time, self._end_display_time)
         outside = [i for i, (t, _) in enumerate(st.waypoints) if t < cutoff]
         if len(outside) > 1:
             st.waypoints = st.waypoints[outside[-1]:]
- 
-    def _step_value_at_time(self, st: _SeriesState,
-                             query_t: float, now: float) -> float:
+
+    def _step_value_at_time(self, st: _SeriesState, query_t: float, now: float) -> float:
         if st.tip_committed is None:
             return 0.0
         wps = st.waypoints
@@ -4357,21 +4419,21 @@ class AnimatedGraph:
         for i in range(len(wps) - 1):
             if wps[i][0] <= query_t < wps[i + 1][0]:
                 return wps[i][1]
- 
         return wps[-1][1]
- 
+
     def _step_value_at_x(self, st, now, rx, rw, x):
-        if rw <= 0:
-            return 0.0
-        query_t = now - self._max_time * (1.0 - (x - rx) / rw)
-        return max(0.0, self._step_value_at_time(st, query_t, now))
- 
+        query_t = self._x_to_time(x, now, rx, rw)
+        v = self._value_at_time(st, query_t, now)
+        if v is None:
+            v = 0.0
+        return max(0.0, v)
+
     def _compute_target_range(self, now: float) -> Tuple[float, float]:
         d            = self.defn
         base_lo, base_hi = d.value_range
         step         = d.dynamic_scale
- 
-        if d.stack:
+
+        if self._stack_cached:
             all_times: set = {now}
             for st in self._series:
                 for abs_t, _ in st.waypoints:
@@ -4391,15 +4453,15 @@ class AnimatedGraph:
                     values.append(st.tip_committed)
             raw_lo = min(values) if values else base_lo
             raw_hi = max(values) if values else base_hi
- 
+
         if step > 0:
             new_lo = _math.floor(raw_lo / step) * step
             new_hi = _math.ceil(raw_hi  / step) * step
         else:
             new_lo, new_hi = raw_lo, raw_hi
- 
+
         return (min(new_lo, base_lo), max(new_hi, base_hi))
- 
+
     def _update_dynamic_range(self, now: float) -> None:
         lo, hi = self._compute_target_range(now)
         if lo == self._range_lo_tgt and hi == self._range_hi_tgt:
@@ -4411,7 +4473,7 @@ class AnimatedGraph:
         self._range_hi_tgt   = hi
         self._range_ease_t0  = now
         self._range_easing   = True
- 
+
     def _effective_range_eased(self, now: float) -> Tuple[float, float]:
         if self.defn.dynamic_scale == 0.0:
             return self.defn.value_range
@@ -4430,49 +4492,58 @@ class AnimatedGraph:
         self._range_lo = lo
         self._range_hi = hi
         return (lo, hi)
- 
+
     def _build_pts(self, st: _SeriesState, now: float, rx: float, ry: float, rw: float, rh: float, lo: float, hi: float) -> List[QPointF]:
         if st.tip_committed is None:
             return []
-        cutoff = now - self._max_time
- 
-        def to_pt(abs_t: float, val: float) -> QPointF:
-            return QPointF(self._time_to_x(abs_t, now, rx, rw), self._value_to_y(val, ry, rh, lo, hi))
- 
-        wps = st.waypoints
-        first_inside = next((i for i, (t, _) in enumerate(wps) if t >= cutoff), len(wps))
- 
-        pts: List[QPointF] = []
- 
-        if first_inside > 0:
-            anchor_t, anchor_v = wps[first_inside - 1]
-            pts.append(to_pt(anchor_t, anchor_v))
 
-        for abs_t, val in wps[first_inside:]:
-            pts.append(to_pt(abs_t, val))
- 
-        tip_val = self._tip_display_value(st, now)
-        if tip_val is None:
-            tip_val = st.tip_committed
-        pts.append(QPointF(rx + rw, self._value_to_y(tip_val, ry, rh, lo, hi)))
- 
+        left_time  = now - self._end_display_time
+        right_time = now - self._start_display_time
+
+        def to_pt(t: float, v: float) -> QPointF:
+            return QPointF(self._time_to_x(t, now, rx, rw), self._value_to_y(v, ry, rh, lo, hi))
+
+        pts: List[QPointF] = []
+
+        left_val = self._value_at_time(st, left_time, now)
+        if left_val is None:
+            left_val = st.waypoints[0][1] if st.waypoints else st.tip_committed
+        pts.append(to_pt(left_time, left_val))
+
+        for t, v in st.waypoints:
+            if left_time < t < right_time:
+                pts.append(to_pt(t, v))
+
+        if self._start_display_time <= 0.0:
+            tip_val = self._tip_display_value(st, now)
+            if tip_val is None:
+                tip_val = st.tip_committed
+            pts.append(to_pt(right_time, tip_val))
+        else:
+            right_val = self._value_at_time(st, right_time, now)
+            if right_val is None:
+                right_val = st.tip_committed
+            pts.append(to_pt(right_time, right_val))
+
         return pts
- 
-    def _collect_x_boundaries(self, now: float,
-                                rx: float, rw: float) -> List[float]:
+
+    def _collect_x_boundaries(self, now: float, rx: float, rw: float) -> List[float]:
+        left_time  = now - self._end_display_time
+        right_time = now - self._start_display_time
         xs: set = {rx, rx + rw}
         for st in self._series:
             for abs_t, _ in st.waypoints:
-                xs.add(self._time_to_x(abs_t, now, rx, rw))
+                if left_time <= abs_t <= right_time:
+                    xs.add(self._time_to_x(abs_t, now, rx, rw))
         return sorted(xs)
- 
+
     def _build_stacked_pts(self, now: float, rx: float, ry: float, rw: float, rh: float, lo: float, hi: float) -> List[List[QPointF]]:
         xs       = self._collect_x_boundaries(now, rx, rw)
         n_ser    = len(self._series)
         bottom_y = ry + rh
         span     = hi - lo
         ppu      = rh / span if span != 0 else 0.0
- 
+
         tops: List[List[float]] = [[] for _ in range(n_ser)]
         for x in xs:
             cum_px = 0.0
@@ -4480,14 +4551,33 @@ class AnimatedGraph:
                 v = self._step_value_at_x(st, now, rx, rw, x)
                 cum_px += v * ppu
                 tops[si].append(bottom_y - cum_px)
- 
+
         return [
             [QPointF(xs[xi], tops[si][xi]) for xi in range(len(xs))]
             for si in range(n_ser)
         ]
- 
+
+    def _value_at_time(self, st: _SeriesState, query_t: float, now: float) -> Optional[float]:
+        if st.tip_committed is None:
+            return None
+        wps = st.waypoints
+        if not wps:
+            return st.tip_committed if query_t >= st.tip_t0 else None
+        if query_t <= wps[0][0]:
+            return wps[0][1]
+        if query_t >= wps[-1][0]:
+            return st.tip_committed if query_t >= st.tip_t0 else wps[-1][1]
+        for i in range(len(wps) - 1):
+            t0, v0 = wps[i]
+            t1, v1 = wps[i + 1]
+            if t0 <= query_t <= t1:
+                frac = (query_t - t0) / (t1 - t0) if t1 > t0 else 0.0
+                return v0 + (v1 - v0) * frac
+        return wps[-1][1]
+
     def tick(self, now: float) -> None:
         d = self.defn
+        self._refresh_time_window()
         for st in self._series:
             self._prune(st, now)
         if d.dynamic_scale != 0.0:
@@ -4503,7 +4593,7 @@ class AnimatedGraph:
                 else:
                     continue
                 self._push_value(st, val, now)
- 
+
     def _ingest(self, ctx: Any, now: float) -> None:
         d = self.defn
         for sd, st in zip(d.series, self._series):
@@ -4537,27 +4627,32 @@ class AnimatedGraph:
                             for val in new_vals:
                                 self._push_value(st, float(val), now)
                     st.last_data_fn_result = list(samples)
-    
-    def _draw_labels(self, painter: QPainter, rx: float, ry: float, rw: float, rh: float) -> None:
+
+    def _fade_color(self, c: QColor, alpha_mult: float) -> QColor:
+        out = QColor(c)
+        out.setAlpha(int(c.alpha() * alpha_mult))
+        return out
+
+    def _draw_labels(self, painter: QPainter, rx: float, ry: float, rw: float, rh: float, alpha_mult: float) -> None:
         d = self.defn
- 
+
         show_minmax = d.show_minmax
         show_step  = d.show_step
         step_count  = int(d.step_count() if callable(d.step_count) else d.step_count)
         size_minmax = d.size_minmax
         size_step   = d.size_step
- 
+
         if not show_minmax and (not show_step or step_count <= 0):
             return
- 
+
         if d.dynamic_scale != 0.0:
             lo = self._range_lo_tgt
             hi = self._range_hi_tgt
         else:
             lo, hi = d.value_range
- 
-        base_color = d.value_color
- 
+
+        base_color = self._fade_color(d.value_color, alpha_mult)
+
         def _fmt(v: float) -> str:
             if v == int(v):
                 return str(int(v))
@@ -4566,16 +4661,17 @@ class AnimatedGraph:
                 return '0'
             decimals = max(0, 2 - int(_math.floor(_math.log10(mag)))) if mag >= 1 else 3
             return f'{v:.{decimals}f}'.rstrip('0').rstrip('.')
- 
+
         def _label_color():
-            return QColor(base_color.red(), base_color.green(),
-                          base_color.blue(), 180)
- 
+            c = QColor(base_color)
+            c.setAlpha(int(c.alpha() * (180 / 255)))
+            return c
+
         def _make_label_font(font_size: float):
             f = QFont()
             f.setPointSizeF(max(0.5, font_size))
             return f, QFontMetrics(f)
- 
+
         def _draw_right(text: str, font_size: float, y_center: float) -> None:
             f, fm = _make_label_font(font_size)
             x = int(rx - 4 - fm.horizontalAdvance(text))
@@ -4584,7 +4680,7 @@ class AnimatedGraph:
             painter.setPen(_label_color())
             painter.drawText(x, y, text)
             painter.setPen(Qt.NoPen)
- 
+
         def _draw_left(text: str, font_size: float, y_center: float) -> None:
             f, fm = _make_label_font(font_size)
             x = int(rx + 4)
@@ -4593,53 +4689,78 @@ class AnimatedGraph:
             painter.setPen(_label_color())
             painter.drawText(x, y, text)
             painter.setPen(Qt.NoPen)
- 
+
         _draw = _draw_right if d.label_align == 'right' else _draw_left
- 
+
         if show_minmax:
             _draw(_fmt(hi), size_minmax, ry)
             _draw(_fmt(lo), size_minmax, ry + rh)
- 
+
         if show_step and step_count > 0:
             for i in range(1, step_count + 1):
                 ratio = i / (step_count + 1)
                 _draw(_fmt(lo + ratio * (hi - lo)), size_step,
                       ry + rh * (1.0 - ratio))
+    
+    def _draw_series_names(self, painter: QPainter, d: 'GraphDef', tip_points: List[Optional[QPointF]], alpha_mult: float) -> None:
+        for sd, tip_pt in zip(d.series, tip_points):
+            if not sd.name or tip_pt is None:
+                continue
+            color = self._fade_color(sd.color, alpha_mult)
+            f = QFont()
+            f.setPointSizeF(max(0.5, d.size_name))
+            fm = QFontMetrics(f)
+            painter.setFont(f)
+            painter.setPen(color)
+            lx = int(tip_pt.x() + 4)
+            ly = int(tip_pt.y() + fm.ascent() * 0.5 - fm.descent() * 0.5)
+            painter.drawText(lx, ly, sd.name)
+            painter.setPen(Qt.NoPen)
 
     def draw(self, painter: QPainter, widget_w: int, widget_h: int, ctx: Any = None, cam_w: int = MONITOR_RESOLUTIONS[0][0], cam_h: int = MONITOR_RESOLUTIONS[0][1]) -> None:
         if self.hidden:
             return
- 
+
         now = time.monotonic()
         d   = self.defn
- 
+
+        self._refresh_time_window()
+
+        alpha_mult = self._current_fade(now)
+        if alpha_mult <= 0.0:
+            return
+
         self._ingest(ctx, now)
- 
+
         rx, ry, rw, rh = self._screen_rect(widget_w, widget_h)
         if rw <= 0 or rh <= 0:
             return
- 
+
         lo, hi   = self._effective_range_eased(now)
         bottom_y = ry + rh
- 
-        if d.stack:
+
+        if self._stack_cached:
             all_pts = self._build_stacked_pts(now, rx, ry, rw, rh, lo, hi)
         else:
             all_pts = [self._build_pts(st, now, rx, ry, rw, rh, lo, hi) for st in self._series]
- 
+
         painter.save()
         painter.setClipRect(int(rx), int(ry), int(rw + 1), int(rh + 1))
- 
+
+        tip_points: List[Optional[QPointF]] = [None] * len(d.series)
+
         for si, (sd, st) in enumerate(zip(d.series, self._series)):
             pts = all_pts[si]
             if not pts:
                 continue
- 
+
+            series_color = self._fade_color(sd.color, alpha_mult)
+
             if sd.fill_opacity > 0.0:
                 fill_color = QColor(sd.color)
-                fill_color.setAlphaF(sd.fill_opacity)
+                fill_color.setAlphaF(sd.fill_opacity * alpha_mult)
                 fill_poly  = QPolygonF()
-                if d.stack and si > 0:
+                if self._stack_cached and si > 0:
                     for pt in pts:
                         fill_poly.append(pt)
                     for pt in reversed(all_pts[si - 1]):
@@ -4653,9 +4774,9 @@ class AnimatedGraph:
                 painter.setBrush(fill_color)
                 painter.drawPolygon(fill_poly)
                 painter.setBrush(Qt.NoBrush)
- 
+
             if sd.outline_width > 0.0:
-                pen = QPen(sd.color)
+                pen = QPen(series_color)
                 pen.setWidthF(sd.outline_width)
                 pen.setCapStyle(Qt.RoundCap)
                 pen.setJoinStyle(Qt.RoundJoin)
@@ -4664,9 +4785,12 @@ class AnimatedGraph:
                 for i in range(len(pts) - 1):
                     painter.drawLine(pts[i], pts[i + 1])
                 painter.setPen(Qt.NoPen)
- 
+
+            tip_points[si] = pts[-1]
+
         painter.restore()
-        self._draw_labels(painter, rx, ry, rw, rh)
+        self._draw_labels(painter, rx, ry, rw, rh, alpha_mult)
+        self._draw_series_names(painter, d, tip_points, alpha_mult)
 
 # ──────────────────────── PIE DEF ────────────────────────
 
@@ -4878,6 +5002,7 @@ class WindowDef:
     force_open:             bool                    = False
     force_close:            bool                    = False
     phase_event:            Any                     = None
+    hidden_event:           Optional[Any]           = None
     phase_fn:               Optional[Callable[str]] = None
     phases:                 Dict[str, Phase]        = field(default_factory=dict)
     listener_defs:          List[EventListener]     = field(default_factory=list)
@@ -4974,6 +5099,16 @@ class AnimatedWindow:
                     phase = 'close'
                 tb._last_override_phase = phase
                 tb._set_base_phase(phase)
+        
+        for g, gd in zip(self._graphs, defn.graph_defs):
+            if gd.phase_override is not None:
+                ov = gd.phase_override
+                val = ov.value if hasattr(ov, 'value') else (ov() if callable(ov) else ov)
+                phase = str(val) if val is not None else ''
+                if phase not in ('open', 'close'):
+                    phase = 'close'
+                g._last_override_phase = phase
+                g.set_phase(phase)
 
         self._btn_grid: Dict[tuple, List[int]] = {}
         self._btn_bounds: List[Optional[tuple]] = [None] * len(self._buttons)
@@ -5065,6 +5200,14 @@ class AnimatedWindow:
         self._snap_to_p1y:        float = 0.0
         self._snap_to_p2x:        float = 0.0
         self._snap_to_p2y:        float = 0.0
+        self._snap_from_px1x:     float = 0.0
+        self._snap_from_px1y:     float = 0.0
+        self._snap_from_px2x:     float = 0.0
+        self._snap_from_px2y:     float = 0.0
+        self._snap_to_px1x:       float = 0.0
+        self._snap_to_px1y:       float = 0.0
+        self._snap_to_px2x:       float = 0.0
+        self._snap_to_px2y:       float = 0.0
 
         self._spawned:          List[_SpawnedInstance] = []
         self._last_ipw:         int   = 0
@@ -5133,9 +5276,9 @@ class AnimatedWindow:
         for tb, td in zip(self._textboxes, self.defn.textbox_defs):
             if td.phase_override is None:
                 tb._set_base_phase(phase)
-        for gd in _gradients.values():
-            if gd.phase_event is None:
-                gd._animated.set_phase(phase)
+        for g, gd in zip(self._graphs, self.defn.graph_defs):
+            if gd.phase_override is None:
+                g.set_phase(phase)
         for sw in self._sub_windows:
             if sw.defn.spawn_event is not None:
                 continue
@@ -5271,6 +5414,8 @@ class AnimatedWindow:
             self._win_idx += 1
 
     def tick(self, now: float) -> None:
+        if self.defn.hidden_event is not None:
+            self.hidden = _resolve_bool_value(self.defn.hidden_event)
         if self.hidden: return
         self._poll_phase_event()
         if self._snap_tween_active:
@@ -5279,6 +5424,8 @@ class AnimatedWindow:
             if elapsed >= dur:
                 self._cur_p1  = P(self._snap_to_p1x, self._snap_to_p1y)
                 self._cur_p2  = P(self._snap_to_p2x, self._snap_to_p2y)
+                self._cur_px1 = P(self._snap_to_px1x, self._snap_to_px1y)
+                self._cur_px2 = P(self._snap_to_px2x, self._snap_to_px2y)
                 self._snap_tween_active = False
             else:
                 v = 1.0 - (1.0 - elapsed / dur) ** 5
@@ -5289,6 +5436,14 @@ class AnimatedWindow:
                 self._cur_p2 = P(
                     self._snap_from_p2x + (self._snap_to_p2x - self._snap_from_p2x) * v,
                     self._snap_from_p2y + (self._snap_to_p2y - self._snap_from_p2y) * v,
+                )
+                self._cur_px1 = P(
+                    self._snap_from_px1x + (self._snap_to_px1x - self._snap_from_px1x) * v,
+                    self._snap_from_px1y + (self._snap_to_px1y - self._snap_from_px1y) * v,
+                )
+                self._cur_px2 = P(
+                    self._snap_from_px2x + (self._snap_to_px2x - self._snap_from_px2x) * v,
+                    self._snap_from_px2y + (self._snap_to_px2y - self._snap_from_px2y) * v,
                 )
         if self._cur_phase == 'close' and self._is_done():
             has_always = any(
@@ -5400,11 +5555,21 @@ class AnimatedWindow:
                     continue
 
                 visible = _check_visible_threshold(pd, ww, wh, self.cam_w, self.cam_h)
-                p.hidden = not visible
                 if not visible:
-                    if has_active_always:
+                    if _phase_key_exists(pd.phases or {}, 'threshold'):
+                        p.hidden = False
+                        if p._phase != 'threshold':
+                            p.set_phase('threshold')
                         p.update()
+                    else:
+                        p.hidden = True
+                        if has_active_always:
+                            p.update()
                     continue
+
+                p.hidden = False
+                if p._phase == 'threshold':
+                    p.set_phase('open')
 
                 ov = p.defn.phase_override
                 if ov is not None:
@@ -5435,11 +5600,21 @@ class AnimatedWindow:
                     continue
 
                 visible = _check_visible_threshold(td, ww, wh, self.cam_w, self.cam_h)
-                t.hidden = not visible
                 if not visible:
-                    if has_active_always:
+                    if _phase_key_exists(td.phases or {}, 'threshold'):
+                        t.hidden = False
+                        if t._phase != 'threshold':
+                            t.set_phase('threshold')
                         t.update()
+                    else:
+                        t.hidden = True
+                        if has_active_always:
+                            t.update()
                     continue
+
+                t.hidden = False
+                if t._phase == 'threshold':
+                    t.set_phase('open')
 
                 ov = t.defn.phase_override
                 if ov is not None:
@@ -5487,7 +5662,16 @@ class AnimatedWindow:
                             tb._set_base_phase(phase)
                 tb.update(int(ww), int(wh))
 
-            ipw, iph = int(ww), int(wh)
+            # Graphs
+            for g, gd in zip(self._graphs, self.defn.graph_defs):
+                ov = gd.phase_override
+                if ov is not None:
+                    phase = ov() if callable(ov) else str(ov.value) if hasattr(ov, 'value') else str(ov)
+                    phase = str(phase) if phase is not None else ''
+                    if phase and phase != g._last_override_phase:
+                        g._last_override_phase = phase
+                        if phase in ('open', 'close'):
+                            g.set_phase(phase)
 
             # Sub windows
             for sw in self._sub_windows:
@@ -5504,6 +5688,8 @@ class AnimatedWindow:
             _current_update_window = _prev_update_window
 
     def draw(self, painter, widget_w, widget_h, ctx=None):
+        if self.hidden:
+            return
         if self._cur_phase == 'close' and self._is_done():
             return
         wx, wy, ww, wh = self._screen_rect(widget_w, widget_h)
@@ -5559,6 +5745,8 @@ class AnimatedWindow:
         return mx - wx, my - wy, ww, wh
     
     def mouse_press(self, mx: float, my: float, widget_w: int, widget_h: int) -> bool:
+        if self.hidden:
+            return False
         ignored = _resolve_bool_value(self.defn.ignore_mouse_event)
         if ignored:
             return False
@@ -5664,6 +5852,8 @@ class AnimatedWindow:
         return False
 
     def mouse_move(self, mx, my, widget_w, widget_h):
+        if self.hidden:
+            return False
         if _resolve_bool_value(self.defn.ignore_mouse_event):
             return
         if self._parent_w == 0 and self._parent_h == 0:
@@ -5780,6 +5970,8 @@ class AnimatedWindow:
         return False
 
     def mouse_release(self, mx: float, my: float, widget_w: int, widget_h: int) -> bool:
+        if self.hidden:
+            return False
         if _resolve_bool_value(self.defn.ignore_mouse_event):
             return False
         if self._scaling_window:
@@ -5829,6 +6021,8 @@ class AnimatedWindow:
         return False
         
     def key_press(self, key: int) -> bool:
+        if self.hidden:
+            return False
         self._held_keys.add(key)
         mods  = QApplication.keyboardModifiers()
         shift = bool(mods & Qt.ShiftModifier)
@@ -5855,6 +6049,8 @@ class AnimatedWindow:
         return consumed
 
     def key_release(self, key: int) -> bool:
+        if self.hidden:
+            return False
         self._held_keys.discard(key)
         for inst in reversed(self._spawned):
             if inst.window.key_release(key):
@@ -5980,8 +6176,62 @@ class AnimatedWindow:
         self._snap_to_p1y   = s_p1y
         self._snap_to_p2x   = s_p2x
         self._snap_to_p2y   = s_p2y
+        self._snap_from_px1x = self._cur_px1.x
+        self._snap_from_px1y = self._cur_px1.y
+        self._snap_from_px2x = self._cur_px2.x
+        self._snap_from_px2y = self._cur_px2.y
+        self._snap_to_px1x   = self._cur_px1.x
+        self._snap_to_px1y   = self._cur_px1.y
+        self._snap_to_px2x   = self._cur_px2.x
+        self._snap_to_px2y   = self._cur_px2.y
         self._snap_tween_t0     = now
         self._snap_tween_active = True
+    
+    def animate_to_rect(self, p1: P, p2: P, px1: P, px2: P, dur: float = 0.4) -> None:
+        now = time.monotonic()
+        self._snap_from_p1x = self._cur_p1.x
+        self._snap_from_p1y = self._cur_p1.y
+        self._snap_from_p2x = self._cur_p2.x
+        self._snap_from_p2y = self._cur_p2.y
+        self._snap_to_p1x   = p1.x
+        self._snap_to_p1y   = p1.y
+        self._snap_to_p2x   = p2.x
+        self._snap_to_p2y   = p2.y
+        self._snap_from_px1x = self._cur_px1.x
+        self._snap_from_px1y = self._cur_px1.y
+        self._snap_from_px2x = self._cur_px2.x
+        self._snap_from_px2y = self._cur_px2.y
+        self._snap_to_px1x   = px1.x
+        self._snap_to_px1y   = px1.y
+        self._snap_to_px2x   = px2.x
+        self._snap_to_px2y   = px2.y
+        self._snap_tween_dur    = dur
+        self._snap_tween_t0     = now
+        self._snap_tween_active = True
+    
+    def set_rect_instant(self, p1: P, p2: P, px1: Optional[P] = None, px2: Optional[P] = None) -> None:
+        self._dragging_window   = False
+        self._scaling_window    = False
+        self._snap_tween_active = False
+        self._win_tweens        = []
+        self._win_idx           = 0
+        self._sticky_sides      = set()
+
+        self._cur_p1 = P(p1.x, p1.y)
+        self._cur_p2 = P(p2.x, p2.y)
+        if px1 is not None:
+            self._cur_px1 = P(px1.x, px1.y)
+        if px2 is not None:
+            self._cur_px2 = P(px2.x, px2.y)
+
+        self._s_p1  = self._cur_p1
+        self._s_p2  = self._cur_p2
+        self._s_px1 = self._cur_px1
+        self._s_px2 = self._cur_px2
+        print(self._s_p1)
+        print(self._s_p2)
+        print(self._s_px1)
+        print(self._s_px2)
         
 
     def _on_spawn_trigger(self, value) -> None:
@@ -7028,6 +7278,22 @@ def _resolve_bool_value(val) -> bool:
         try:    return bool(val())
         except: return False
     return bool(val)
+
+def _resolve_numeric_value(val, default: float = 0.0) -> float:
+    if val is None:
+        return default
+    if isinstance(val, EventDef):
+        v = val.value
+        return float(v) if isinstance(v, (int, float)) and not isinstance(v, bool) else default
+    if callable(val):
+        try:
+            v = val()
+            return float(v) if isinstance(v, (int, float)) else default
+        except Exception:
+            return default
+    if isinstance(val, (int, float)):
+        return float(val)
+    return default
 
 def _resolve_tween_event_refs(tw):
     changes = {}

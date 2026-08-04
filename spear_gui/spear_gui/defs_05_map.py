@@ -152,6 +152,10 @@ register_gradient(GradientDef(name="marker_selected_text", p1=P(1, 0), p2=P(1, 0
     }
 ))
 
+register_gradient(GradientDef(name='map_grid_line', p1=P(0.5, 0.5), p2=P(1, 1), radial=True, target='outline', stops=[
+    GradientStop(0.0, QColor(255, 255, 255, 90)),
+    GradientStop(1.0, QColor(255, 255, 255, 0)),
+]))
 
 def _hex_track_px(px1: P, px2: P, half: float) -> List[P]:
     cy = px1.y
@@ -447,7 +451,7 @@ def _spawn_marker_from_coords():
 
 
 _route_last_point_px: Optional[Tuple[float, float]] = None
-ROUTE_POINT_THRESHOLD_PX = 50.0
+ROUTE_POINT_THRESHOLD_PX = 2.0
 
 def _register_route_point(obj_id, statics):
     global _route_last_point_px
@@ -485,11 +489,146 @@ def _route_clear():
     _route_last_point_px = None
 
 
+
+
+
+
+
+
+
+
+
+
+def _haversine_m(lat1: float, lon1: float, lat2: float, lon2: float) -> float:
+    R = 6371000.0
+    phi1, phi2 = math.radians(lat1), math.radians(lat2)
+    dphi    = math.radians(lat2 - lat1)
+    dlambda = math.radians(lon2 - lon1)
+    a = math.sin(dphi / 2) ** 2 + math.cos(phi1) * math.cos(phi2) * math.sin(dlambda / 2) ** 2
+    return 2 * R * math.asin(math.sqrt(a))
+
+def _meters_per_map_px_x() -> float:
+    p1y = get_event('p1_pos_y').value
+    p1x = get_event('p1_pos_x').value
+    p2x = get_event('p2_pos_x').value
+    ipx1 = get_event('initial_map_image_px1').value
+    ipx2 = get_event('initial_map_image_px2').value
+    dist_m  = _haversine_m(p1y, p1x, p1y, p2x)
+    px_span = abs(ipx2.x - ipx1.x)
+    return dist_m / px_span if px_span > 0 else 0.0
+
+_NICE_SCALE_STEPS_M = [1, 2, 5, 10, 20, 50, 100, 200, 500, 1000, 2000, 5000, 10000, 20000, 50000, 100000]
+SCALE_BAR_TARGET_PX = 120.0
+
+def _pick_nice_scale(target_m: float) -> float:
+    if target_m <= 0:
+        return _NICE_SCALE_STEPS_M[0]
+    best = _NICE_SCALE_STEPS_M[0]
+    for step in _NICE_SCALE_STEPS_M:
+        if step <= target_m:
+            best = step
+        else:
+            break
+    return best
+
+def _current_scale_bar() -> Tuple[float, float]:
+    """Returns (distance_in_meters, bar_width_in_screen_px)."""
+    mppx = _meters_per_map_px_x()
+    zoom = get_event('map_zoom').value
+    if mppx <= 0 or zoom <= 0:
+        return 0.0, 0.0
+    meters_per_screen_px = mppx / zoom
+    if meters_per_screen_px <= 0:
+        return 0.0, 0.0
+    target_m = SCALE_BAR_TARGET_PX * meters_per_screen_px
+    nice_m   = _pick_nice_scale(target_m)
+    bar_px   = nice_m / meters_per_screen_px
+    return nice_m, bar_px
+
+def _scale_bar_offsets() -> List[P]:
+    _, bar_px = _current_scale_bar()
+    base_x, base_y, h = 20.0, -20.0, 4.0
+    return [
+        P(base_x, base_y - h),
+        P(base_x, base_y + h),
+        P(base_x + bar_px, base_y + h),
+        P(base_x + bar_px, base_y - h),
+    ]
+
+def _scale_bar_text_pos() -> P:
+    _, bar_px = _current_scale_bar()
+    base_x, base_y, h = 20.0, -20.0, 4.0
+    return P(base_x + bar_px / 2.0, base_y - h - 4.0)
+
+def _scale_bar_text(ctx) -> str:
+    nice_m, _ = _current_scale_bar()
+    if nice_m >= 1000:
+        return f'{nice_m / 1000:.0f} km'
+    return f'{nice_m:.0f} m'
+
+
+GRID_LINE_COUNT = 30
+
+def _grid_spacing_map_px() -> float:
+    mppx = _meters_per_map_px_x()
+    if mppx <= 0:
+        return 0.0
+    nice_m, _ = _current_scale_bar()
+    return nice_m / mppx
+
+def _map_x_to_screen(map_x: float) -> float:
+    mpx  = get_event('map_pos_x').value
+    zoom = get_event('map_zoom').value
+    return _clamp_screen((map_x + mpx) * zoom)
+
+def _map_y_to_screen(map_y: float) -> float:
+    mpy  = get_event('map_pos_y').value
+    zoom = get_event('map_zoom').value
+    return _clamp_screen((map_y + mpy) * zoom)
+
+def _make_vertical_gridline_pos_fn(index: int):
+    def _fn():
+        spacing = _grid_spacing_map_px()
+        return P(_map_x_to_screen(index * spacing), 0.0)
+    return _fn
+
+def _make_horizontal_gridline_pos_fn(index: int):
+    def _fn():
+        spacing = _grid_spacing_map_px()
+        return P(0.0, _map_y_to_screen(index * spacing))
+    return _fn
+
+map_grid_lines: List[PolygonDef] = []
+for i in range(-GRID_LINE_COUNT, GRID_LINE_COUNT + 1):
+    map_grid_lines.append(PolygonDef(
+        p=[P(0.5, 0.0), P(0.5, 1.0)], px=[P(0, 0), P(0, 0)], closed=False,
+        outline_color=QColor(255, 255, 255, 90), outline_width=1.0,
+        gradient=get_gradient('map_grid_line'),
+        pos_fn=_make_vertical_gridline_pos_fn(i),
+    ))
+    map_grid_lines.append(PolygonDef(
+        p=[P(0.0, 0.5), P(1.0, 0.5)], px=[P(0, 0), P(0, 0)], closed=False,
+        outline_color=QColor(255, 255, 255, 90), outline_width=1.0,
+        gradient=get_gradient('map_grid_line'),
+        pos_fn=_make_horizontal_gridline_pos_fn(i),
+    ))
+
+
+
+
+
+
+
+
+
+
+
 map_info_window = WindowDef(
     p1=P(0.0, 0.0), p2=P(1.0, 1.0),
     phase_event=get_event('map_phase'),
-    # polygon_defs=[
-    # ],
+    polygon_defs=[
+        PolygonDef(p=[P(0, 1)] * 4, px=[P(0, 0)] * 4, fill_color=QColor(255, 255, 255, 200), outline_color=QColor(0, 0, 0, 160), outline_width=1.0, pos_fn=lambda: _scale_bar_offsets()),
+    ],
     text_defs=[
         TextDef(p=P(0, 0), px=P(10, 12), text='SPAWN MARKER', font_size=14, bold=True, fill_color=QColor(171, 151, 247, 255), h_align=0.0, v_align=0),
         TextDef(p=P(1, 0), px=P(-10, 12), text='MARKER INFO', font_size=14, bold=True, fill_color=QColor(171, 151, 247, 255), h_align=1.0, v_align=0),
@@ -497,6 +636,7 @@ map_info_window = WindowDef(
             # text_fn=lambda ctx: 'NO MARKER SELECTED' if not get_event('targeted_marker').value else f"selected: {get_event('targeted_marker').value}"),
         # TextDef(p=P(1, 0), px=P(-10, 40), font_size=11, fill_color=QColor(200, 200, 220, 200), h_align=1.0, v_align=0,
         #     text_fn=lambda ctx: get_event('selected_marker_phase').value)
+        TextDef(p=P(0, 1), px=P(0, 0), font_size=10, h_align=0.5, v_align=1.0, fill_color=QColor(255, 255, 255, 255), uniform_scale=False, text_fn=_scale_bar_text, pos_fn=lambda: _scale_bar_text_pos()),
     ],
     textbox_defs=[
         TextboxDef(
@@ -652,6 +792,7 @@ map_display_window = WindowDef(
     ],
     polygon_defs=[
         RectDef(p1=P(0.0, 0.0), p2=P(1.0, 1.0), fill_color=QColor(255, 255, 255, 10), outline_color=QColor(255, 255, 255, 255), outline_width=1),
+        *map_grid_lines,
         PolygonDef(p=[P(0.5, 0.5)]*4, px=[P(-10, 0), P(0, -10), P(10, 0), P(0, 10)], fill_color=QColor(200, 200, 255, 255)),
         PolygonDef(p=[P(0.5, 0.5), P(0.5, 0.5), P(0.5, 0.5), P(0.5, 0.5)], px=[P(0, -100), P(6, -21), P(0, -15), P(-6, -21)], gradient=get_gradient('needle_1'), outline_color=QColor(255, 0, 0, 255), outline_width=1.0, 
             rot_center_p=P(0.5, 0.5), rot_angle=0,
@@ -663,10 +804,10 @@ map_display_window = WindowDef(
         ),
     ],
     text_defs=[
-        TextDef(p=P(0.5, 0), px=P(0, 2), font_size=20, v_align=0, text='N', uniform_scale=False),
-        TextDef(p=P(0.5, 1), px=P(0, -2), font_size=20, v_align=1, text='S', uniform_scale=False),
-        TextDef(p=P(0, 0.5), px=P(2, 0), font_size=20, h_align=0, text='W', uniform_scale=False),
-        TextDef(p=P(1, 0.5), px=P(-2, 2), font_size=20, h_align=1, text='E', uniform_scale=False),
+        TextDef(p=P(0.5, 0), px=P(0, 20), font_size=20, v_align=0, text='N', uniform_scale=False),
+        TextDef(p=P(0.5, 1), px=P(0, -20), font_size=20, v_align=1, text='S', uniform_scale=False),
+        TextDef(p=P(0, 0.5), px=P(20, 0), font_size=20, h_align=0, text='W', uniform_scale=False),
+        TextDef(p=P(1, 0.5), px=P(-20, 0), font_size=20, h_align=1, text='E', uniform_scale=False),
         TextDef(p=P(0, 1), px=P(2, -2), text='(<#>, <#>)', font_size=10, h_align=0, v_align=1, uniform_scale=False,
             text_fn=lambda ctx: [f"{get_event('map_pos_x').value:.7f}", f"{get_event('map_pos_y').value:.7f}"],
         ),
@@ -701,6 +842,7 @@ map_display_window = WindowDef(
             spawn_event=get_event('route_spawn_point'),
             spawn_event_group='routepoint',
             spawn_delete_threshold=1,
+            spawn_limit=9999,
             on_spawn=_register_route_point,
             spawn_static_values=[
                 lambda: -get_event('map_pos_x').value,
@@ -775,7 +917,8 @@ map_display_window = WindowDef(
 
 map_window = WindowDef(
     p1=P(0.0, 0.0), p2=P(0.4, 0.4),
-    phase_event=get_event('main_page'),
+    hidden_event=get_event('window_disabled_map'),
+    phase_event=get_event('content_phase_map'),
     phases={
         'open': Phase([WindowTween(p1=get_event('map_window_p1'), p2=get_event('map_window_p2'), px1=get_event('map_window_px1'), px2=get_event('map_window_px2'), start=0.0, dur=1.0, ease=QEasingCurve.OutQuint)], update_retrigger=True)
     },

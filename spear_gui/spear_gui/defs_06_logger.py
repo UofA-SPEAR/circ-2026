@@ -40,7 +40,8 @@ for i in range(100):
 
 logger_window = WindowDef(
     p1=P(0.0, 0.0), p2=P(0.5, 1.0),
-    phase_event=get_event('main_page'),
+    hidden_event=get_event('window_disabled_logger'),
+    phase_event=get_event('content_phase_logger'),
     phases={
         'open': Phase([WindowTween(p1=get_event('logger_window_p1'), p2=get_event('logger_window_p2'), px1=get_event('logger_window_px1'), px2=get_event('logger_window_px2'), start=0.0, dur=1.0, ease=QEasingCurve.OutQuint)], update_retrigger=True)
     },

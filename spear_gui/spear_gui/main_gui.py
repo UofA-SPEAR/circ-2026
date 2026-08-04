@@ -9,17 +9,6 @@ from PySide6.QtWidgets import QApplication, QWidget
 from PySide6.QtCore import Qt, QTimer
 from PySide6.QtGui import QPainter, QFontDatabase, QSurfaceFormat
 from PySide6.QtOpenGLWidgets import QOpenGLWidget
-
-def main():
-    rclpy.init()
-    node = MainNode()
-
-    fmt = QSurfaceFormat()
-    fmt.setSamples(4)   # try 8 if your GPU/driver supports it and you want smoother edges
-    QSurfaceFormat.setDefaultFormat(fmt)
-
-    app = QApplication(sys.argv)
-    ...
 from dataclasses import dataclass, field
 
 import time

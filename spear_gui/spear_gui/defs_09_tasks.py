@@ -26,7 +26,7 @@ from spear_gui.overlay_system import (
 
 WINDOW_LAYER = 1
 
-register_event(EventDef(name='task_window', value=''))
+register_event(EventDef(name='task_window', value='1. Snack Run'))
 register_event(EventDef(name='task_window_pulse', value=''))
 register_event(EventDef(name='task_window_text', value=''))
 
@@ -632,10 +632,10 @@ camera_access_window = WindowDef(
     button_defs=[
         *SegmentedButtons(
             p1=P(1.00, 0.18), p2=P(1.00, 0.22), px1=P(-410, 0), px2=P(-10, 0), event_out=get_event('wire_count'), segments=[
-                Segment(key=Qt.Key_3, event_delta=3, weight=1, label='3'),
-                Segment(key=Qt.Key_4, event_delta=4, weight=1, label='4'),
-                Segment(key=Qt.Key_5, event_delta=5, weight=1, label='5'),
-                Segment(key=Qt.Key_6, event_delta=6, weight=1, label='6'),
+                Segment(event_delta=3, weight=1, label='3'),
+                Segment(event_delta=4, weight=1, label='4'),
+                Segment(event_delta=5, weight=1, label='5'),
+                Segment(event_delta=6, weight=1, label='6'),
             ],
         ),
         *SegmentedButtons(
@@ -648,9 +648,9 @@ camera_access_window = WindowDef(
                 'open' if get_event('wire_count').value == 6 and not get_event('wire_c6-1').value and not get_event('wire_c6-2').value else 
                 'close'
             ), segments=[
-                Segment(key=Qt.Key_3, event_delta=0, weight=1, label='0'),
-                Segment(key=Qt.Key_4, event_delta=1, weight=1, label='1'),
-                Segment(key=Qt.Key_4, event_delta=2, weight=2, label='≥2'),
+                Segment(event_delta=0, weight=1, label='0'),
+                Segment(event_delta=1, weight=1, label='1'),
+                Segment(event_delta=2, weight=2, label='≥2'),
             ],
         ),
         *SegmentedButtons(
@@ -662,9 +662,9 @@ camera_access_window = WindowDef(
                 'open' if get_event('wire_count').value == 6 else 
                 'close'
             ), segments=[
-                Segment(key=Qt.Key_3, event_delta=0, weight=1, label='0'),
-                Segment(key=Qt.Key_4, event_delta=1, weight=1, label='1'),
-                Segment(key=Qt.Key_4, event_delta=2, weight=2, label='≥2'),
+                Segment(event_delta=0, weight=1, label='0'),
+                Segment(event_delta=1, weight=1, label='1'),
+                Segment(event_delta=2, weight=2, label='≥2'),
             ],
         ),
         *SegmentedButtons(
@@ -675,9 +675,9 @@ camera_access_window = WindowDef(
                 'open' if get_event('wire_count').value == 4 and not get_event('wire_c4-1').value and not get_event('wire_c4-2').value else
                 'close'
             ), segments=[
-                Segment(key=Qt.Key_3, event_delta=0, weight=1, label='0'),
-                Segment(key=Qt.Key_4, event_delta=1, weight=1, label='1'),
-                Segment(key=Qt.Key_4, event_delta=2, weight=2, label='≥2'),
+                Segment(event_delta=0, weight=1, label='0'),
+                Segment(event_delta=1, weight=1, label='1'),
+                Segment(event_delta=2, weight=2, label='≥2'),
             ],
         ),
         *SegmentedButtons(
@@ -687,8 +687,8 @@ camera_access_window = WindowDef(
                 'open' if get_event('wire_count').value == 6 and not get_event('wire_c6-1').value else
                 'close'
             ), segments=[
-                Segment(key=Qt.Key_4, event_delta=1, weight=1, label='≤1'),
-                Segment(key=Qt.Key_4, event_delta=2, weight=1, label='≥2'),
+                Segment(event_delta=1, weight=1, label='≤1'),
+                Segment(event_delta=2, weight=1, label='≥2'),
             ],
         ),
         *SegmentedButtons(
@@ -698,8 +698,8 @@ camera_access_window = WindowDef(
                 'open' if get_event('wire_count').value == 5 and not get_event('wire_c5-1').value and not get_event('wire_c5-2').value else
                 'close'
             ), segments=[
-                Segment(key=Qt.Key_3, event_delta=0, weight=1, label='0'),
-                Segment(key=Qt.Key_4, event_delta=1, weight=1, label='≥1'),
+                Segment(event_delta=0, weight=1, label='0'),
+                Segment(event_delta=1, weight=1, label='≥1'),
             ],
         ),
         *SegmentedButtons(
@@ -711,9 +711,9 @@ camera_access_window = WindowDef(
                 'open' if get_event('wire_count').value == 5 else
                 'close'
             ), segments=[
-                Segment(key=Qt.Key_3, event_delta='yellow', weight=1, label='YELLOW'),
-                Segment(key=Qt.Key_4, event_delta='white', weight=1, label='WHITE'),
-                Segment(key=Qt.Key_4, event_delta='black', weight=1, label='BLACK'),
+                Segment(event_delta='yellow', weight=1, label='YELLOW'),
+                Segment(event_delta='white', weight=1, label='WHITE'),
+                Segment(event_delta='black', weight=1, label='BLACK'),
             ],
         ),
 
@@ -726,7 +726,7 @@ camera_access_window = WindowDef(
                 'open' if get_event('wire_count').value == 3 or get_event('wire_count').value == 4 or get_event('wire_count').value == 5 or get_event('wire_count').value == 6 else
                 'close'
             ), segments=[
-                Segment(key=Qt.Key_3, event_delta=[None, None, None, None, None, None, None], weight=1, label='RESET'),
+                Segment(event_delta=[None, None, None, None, None, None, None], weight=1, label='RESET'),
             ],
         ),
     ],
@@ -742,7 +742,8 @@ camera_access_window = WindowDef(
 
 tasks_window = WindowDef(
     p1=P(0.5, 0.0), p2=P(1.0, 1.0),
-    phase_event=get_event('main_page'),
+    hidden_event=get_event('window_disabled_task'),
+    phase_event=get_event('content_phase_task'),
     phases={
         'open': Phase([WindowTween(p1=get_event('task_window_p1'), p2=get_event('task_window_p2'), px1=get_event('task_window_px1'), px2=get_event('task_window_px2'), start=0.0, dur=1.0, ease=QEasingCurve.OutQuint)], update_retrigger=True)
     },
@@ -778,12 +779,12 @@ tasks_window = WindowDef(
             p1=P(0.45, 0.03), p2=P(0.95, 0.06), px1=P(0, 0), px2=P(0, 0), event_out=get_event('task_window'), 
             text_def=TextDef(font_size=12.0, fill_color=QColor(255, 255, 255, 255), bold=True),
             segments=[
-                Segment(key=Qt.Key_3, event_delta='', weight=1, label='MAIN'),
-                Segment(key=Qt.Key_4, event_delta='1. Snack Run', weight=1, label='SNK'),
-                Segment(key=Qt.Key_4, event_delta='2. Heist Mission', weight=1, label='HST'),
-                Segment(key=Qt.Key_4, event_delta='3. RoverCooked', weight=1, label='RVC'),
-                Segment(key=Qt.Key_4, event_delta='4. Refreshment Delivery', weight=1, label='DLV'),
-                Segment(key=Qt.Key_4, event_delta='5. Exploration Proposal', weight=1, label='EXP'),
+                Segment(event_delta='', weight=1, label='MAIN'),
+                Segment(event_delta='1. Snack Run', weight=1, label='SNK'),
+                Segment(event_delta='2. Heist Mission', weight=1, label='HST'),
+                Segment(event_delta='3. RoverCooked', weight=1, label='RVC'),
+                Segment(event_delta='4. Refreshment Delivery', weight=1, label='DLV'),
+                Segment(event_delta='5. Exploration Proposal', weight=1, label='EXP'),
             ],
         ),
     ],

@@ -419,43 +419,67 @@ OVERLAY_WINDOWS = [
             # Line Rects
             # Top Left
             RectDef(p1=P(0, 0), p2=P(0, 0), px1=P(27, 50), px2=P(33, 50), fill_color=QColor(255, 255, 255, 255), phase_override=get_event('startup_phase'), phases={
-                'open': Phase([RectTween(px1=P(27, 50 - 10), px2=P(33, 50 + 10), start=0.5, dur=1.0, ease=QEasingCurve.OutQuint)])
+                'open': Phase([RectTween(px1=P(27, 50 - 10), px2=P(33, 50 + 10), start=0.5, dur=1.0, ease=QEasingCurve.OutQuint)]),
+                'always': Phase([RectTween(px1=P(0, 30), px2=P(0, 30), start=0.0, dur=10.0, ease=QEasingCurve.InOutSine),
+                                RectTween(px1=P(0, 0), px2=P(0, 0), start=10.0, dur=10.0, ease=QEasingCurve.InOutSine)], loop=True, stop_phases=['close']),
             }),
             RectDef(p1=P(0, 0), p2=P(0, 0), px1=P(27, 50 + 70), px2=P(33, 50 + 70), fill_color=QColor(255, 255, 255, 255), phase_override=get_event('startup_phase'), phases={
-                'open': Phase([RectTween(px1=P(27, 50 + 30), px2=P(33, 50 + 110), start=0.5, dur=1.0, ease=QEasingCurve.OutQuint)])
+                'open': Phase([RectTween(px1=P(27, 50 + 30), px2=P(33, 50 + 110), start=0.5, dur=1.0, ease=QEasingCurve.OutQuint)]),
+                'always': Phase([RectTween(px1=P(0, 25), px2=P(0, 25), start=0.0, dur=10.0, ease=QEasingCurve.InOutSine),
+                                RectTween(px1=P(0, 0), px2=P(0, 0), start=10.0, dur=10.0, ease=QEasingCurve.InOutSine)], loop=True, stop_phases=['close']),
             }),
             RectDef(p1=P(0, 0), p2=P(0, 0), px1=P(27, 50 + 140), px2=P(33, 50 + 140), fill_color=QColor(255, 255, 255, 255), phase_override=get_event('startup_phase'), phases={
-                'open': Phase([RectTween(px1=P(27, 50 + 130), px2=P(33, 50 + 150), start=0.5, dur=1.0, ease=QEasingCurve.OutQuint)])
+                'open': Phase([RectTween(px1=P(27, 50 + 130), px2=P(33, 50 + 150), start=0.5, dur=1.0, ease=QEasingCurve.OutQuint)]),
+                'always': Phase([RectTween(px1=P(0, 20), px2=P(0, 20), start=0.0, dur=10.0, ease=QEasingCurve.InOutSine),
+                                RectTween(px1=P(0, 0), px2=P(0, 0), start=10.0, dur=10.0, ease=QEasingCurve.InOutSine)], loop=True, stop_phases=['close']),
             }),
             # Bottom Left
             RectDef(p1=P(0, 1), p2=P(0, 1), px1=P(57, -50), px2=P(63, -50), fill_color=QColor(255, 255, 255, 255), phase_override=get_event('startup_phase'), phases={
-                'open': Phase([RectTween(px1=P(57, -50 - 10), px2=P(63, -50 + 10), start=0.5, dur=1.0, ease=QEasingCurve.OutQuint)])
+                'open': Phase([RectTween(px1=P(57, -50 - 10), px2=P(63, -50 + 10), start=0.5, dur=1.0, ease=QEasingCurve.OutQuint)]),
+                'always': Phase([RectTween(px1=P(0, -20), px2=P(0, -20), start=0.0, dur=10.0, ease=QEasingCurve.InOutSine),
+                                RectTween(px1=P(0, 0), px2=P(0, 0), start=10.0, dur=10.0, ease=QEasingCurve.InOutSine)], loop=True, stop_phases=['close']),
             }),
             RectDef(p1=P(0, 1), p2=P(0, 1), px1=P(57, -50 - 70), px2=P(63, -50 - 70), fill_color=QColor(255, 255, 255, 255), phase_override=get_event('startup_phase'), phases={
-                'open': Phase([RectTween(px1=P(57, -50 - 30), px2=P(63, -50 - 110), start=0.5, dur=1.0, ease=QEasingCurve.OutQuint)])
+                'open': Phase([RectTween(px1=P(57, -50 - 30), px2=P(63, -50 - 110), start=0.5, dur=1.0, ease=QEasingCurve.OutQuint)]),
+                'always': Phase([RectTween(px1=P(0, -25), px2=P(0, -25), start=0.0, dur=10.0, ease=QEasingCurve.InOutSine),
+                                RectTween(px1=P(0, 0), px2=P(0, 0), start=10.0, dur=10.0, ease=QEasingCurve.InOutSine)], loop=True, stop_phases=['close']),
             }),
             RectDef(p1=P(0, 1), p2=P(0, 1), px1=P(57, -50 - 140), px2=P(63, -50 - 140), fill_color=QColor(255, 255, 255, 255), phase_override=get_event('startup_phase'), phases={
-                'open': Phase([RectTween(px1=P(57, -50 - 130), px2=P(63, -50 - 150), start=0.5, dur=1.0, ease=QEasingCurve.OutQuint)])
+                'open': Phase([RectTween(px1=P(57, -50 - 130), px2=P(63, -50 - 150), start=0.5, dur=1.0, ease=QEasingCurve.OutQuint)]),
+                'always': Phase([RectTween(px1=P(0, -30), px2=P(0, -30), start=0.0, dur=10.0, ease=QEasingCurve.InOutSine),
+                                RectTween(px1=P(0, 0), px2=P(0, 0), start=10.0, dur=10.0, ease=QEasingCurve.InOutSine)], loop=True, stop_phases=['close']),
             }),
             # Top Right
             RectDef(p1=P(1, 0), p2=P(1, 0), px1=P(-63, 50), px2=P(-57, 50), fill_color=QColor(255, 255, 255, 255), phase_override=get_event('startup_phase'), phases={
-                'open': Phase([RectTween(px1=P(-63, 50 - 10), px2=P(-57, 50 + 10), start=0.5, dur=1.0, ease=QEasingCurve.OutQuint)])
+                'open': Phase([RectTween(px1=P(-63, 50 - 10), px2=P(-57, 50 + 10), start=0.5, dur=1.0, ease=QEasingCurve.OutQuint)]),
+                'always': Phase([RectTween(px1=P(0, 30), px2=P(0, 30), start=0.0, dur=10.0, ease=QEasingCurve.InOutSine),
+                                RectTween(px1=P(0, 0), px2=P(0, 0), start=10.0, dur=10.0, ease=QEasingCurve.InOutSine)], loop=True, stop_phases=['close']),
             }),
             RectDef(p1=P(1, 0), p2=P(1, 0), px1=P(-63, 50 + 70), px2=P(-57, 50 + 70), fill_color=QColor(255, 255, 255, 255), phase_override=get_event('startup_phase'), phases={
-                'open': Phase([RectTween(px1=P(-63, 50 + 110), px2=P(-57, 50 + 30), start=0.5, dur=1.0, ease=QEasingCurve.OutQuint)])
+                'open': Phase([RectTween(px1=P(-63, 50 + 110), px2=P(-57, 50 + 30), start=0.5, dur=1.0, ease=QEasingCurve.OutQuint)]),
+                'always': Phase([RectTween(px1=P(0, 25), px2=P(0, 25), start=0.0, dur=10.0, ease=QEasingCurve.InOutSine),
+                                RectTween(px1=P(0, 0), px2=P(0, 0), start=10.0, dur=10.0, ease=QEasingCurve.InOutSine)], loop=True, stop_phases=['close']),
             }),
             RectDef(p1=P(1, 0), p2=P(1, 0), px1=P(-63, 50 + 140), px2=P(-57, 50 + 140), fill_color=QColor(255, 255, 255, 255), phase_override=get_event('startup_phase'), phases={
-                'open': Phase([RectTween(px1=P(-63, 50 + 150), px2=P(-57, 50 + 130), start=0.5, dur=1.0, ease=QEasingCurve.OutQuint)])
+                'open': Phase([RectTween(px1=P(-63, 50 + 150), px2=P(-57, 50 + 130), start=0.5, dur=1.0, ease=QEasingCurve.OutQuint)]),
+                'always': Phase([RectTween(px1=P(0, 20), px2=P(0, 20), start=0.0, dur=10.0, ease=QEasingCurve.InOutSine),
+                                RectTween(px1=P(0, 0), px2=P(0, 0), start=10.0, dur=10.0, ease=QEasingCurve.InOutSine)], loop=True, stop_phases=['close']),
             }),
             # Bottom Right
             RectDef(p1=P(1, 1), p2=P(1, 1), px1=P(-33, -50), px2=P(-27, -50), fill_color=QColor(255, 255, 255, 255), phase_override=get_event('startup_phase'), phases={
-                'open': Phase([RectTween(px1=P(-33, -50 - 10), px2=P(-27, -50 + 10), start=0.5, dur=1.0, ease=QEasingCurve.OutQuint)])
+                'open': Phase([RectTween(px1=P(-33, -50 - 10), px2=P(-27, -50 + 10), start=0.5, dur=1.0, ease=QEasingCurve.OutQuint)]),
+                'always': Phase([RectTween(px1=P(0, -20), px2=P(0, -20), start=0.0, dur=10.0, ease=QEasingCurve.InOutSine),
+                                RectTween(px1=P(0, 0), px2=P(0, 0), start=10.0, dur=10.0, ease=QEasingCurve.InOutSine)], loop=True, stop_phases=['close']),
             }),
             RectDef(p1=P(1, 1), p2=P(1, 1), px1=P(-33, -50 - 70), px2=P(-27, -50 - 70), fill_color=QColor(255, 255, 255, 255), phase_override=get_event('startup_phase'), phases={
-                'open': Phase([RectTween(px1=P(-33, -50 - 110), px2=P(-27, -50 - 30), start=0.5, dur=1.0, ease=QEasingCurve.OutQuint)])
+                'open': Phase([RectTween(px1=P(-33, -50 - 110), px2=P(-27, -50 - 30), start=0.5, dur=1.0, ease=QEasingCurve.OutQuint)]),
+                'always': Phase([RectTween(px1=P(0, -25), px2=P(0, -25), start=0.0, dur=10.0, ease=QEasingCurve.InOutSine),
+                                RectTween(px1=P(0, 0), px2=P(0, 0), start=10.0, dur=10.0, ease=QEasingCurve.InOutSine)], loop=True, stop_phases=['close']),
             }),
             RectDef(p1=P(1, 1), p2=P(1, 1), px1=P(-33, -50 - 140), px2=P(-27, -50 - 140), fill_color=QColor(255, 255, 255, 255), phase_override=get_event('startup_phase'), phases={
-                'open': Phase([RectTween(px1=P(-33, -50 - 150), px2=P(-27, -50 - 130), start=0.5, dur=1.0, ease=QEasingCurve.OutQuint)])
+                'open': Phase([RectTween(px1=P(-33, -50 - 150), px2=P(-27, -50 - 130), start=0.5, dur=1.0, ease=QEasingCurve.OutQuint)]),
+                'always': Phase([RectTween(px1=P(0, -30), px2=P(0, -30), start=0.0, dur=10.0, ease=QEasingCurve.InOutSine),
+                                RectTween(px1=P(0, 0), px2=P(0, 0), start=10.0, dur=10.0, ease=QEasingCurve.InOutSine)], loop=True, stop_phases=['close']),
             }),
 
             # Hovering Objects
