@@ -1,0 +1,12 @@
+<?xml version="1.0"?>
+<library path="spear_drive_controller">
+  <class
+    name="spear_drive/SpearDriveController"
+    type="spear_drive::SpearDriveController"
+    base_class_type="controller_interface::ControllerInterface">
+    <description>
+      Six-wheel torque and four-wheel steering controller with local timeouts,
+      steering zero interlock, frame protection, and degraded drive modes.
+    </description>
+  </class>
+</library>

@@ -1,0 +1,49 @@
+<?xml version="1.0"?>
+<robot xmlns:xacro="http://www.ros.org/wiki/xacro">
+  <!--
+    Call this macro inside the ONE existing master-0 ros2_control system after
+    the arm joints. Running a second EtherCAT master for the drivetrain is not
+    supported. The two slave configuration paths must come from the embedded
+    team's final PDO descriptions; this package intentionally does not invent
+    vendor IDs, object indexes, data types, or scaling.
+  -->
+  <xacro:macro name="spear_drive_ethercat_joints"
+      params="drive_slave_config steering_slave_config">
+    <xacro:macro name="drive_slave" params="joint slave_position">
+      <joint name="${joint}">
+        <command_interface name="effort"/>
+        <state_interface name="velocity"/>
+        <ec_module name="${joint}_ethercat">
+          <plugin>ethercat_generic_plugins/GenericEcSlave</plugin>
+          <param name="alias">0</param>
+          <param name="position">${slave_position}</param>
+          <param name="slave_config">${drive_slave_config}</param>
+        </ec_module>
+      </joint>
+    </xacro:macro>
+
+    <xacro:macro name="steering_slave" params="joint slave_position">
+      <joint name="${joint}">
+        <command_interface name="position"/>
+        <state_interface name="position"/>
+        <ec_module name="${joint}_ethercat">
+          <plugin>ethercat_generic_plugins/GenericEcSlave</plugin>
+          <param name="alias">0</param>
+          <param name="position">${slave_position}</param>
+          <param name="slave_config">${steering_slave_config}</param>
+        </ec_module>
+      </joint>
+    </xacro:macro>
+
+    <xacro:drive_slave joint="front_left_drive_joint" slave_position="6"/>
+    <xacro:drive_slave joint="front_right_drive_joint" slave_position="7"/>
+    <xacro:drive_slave joint="middle_left_drive_joint" slave_position="8"/>
+    <xacro:drive_slave joint="middle_right_drive_joint" slave_position="9"/>
+    <xacro:drive_slave joint="rear_left_drive_joint" slave_position="10"/>
+    <xacro:drive_slave joint="rear_right_drive_joint" slave_position="11"/>
+    <xacro:steering_slave joint="front_left_steer_joint" slave_position="12"/>
+    <xacro:steering_slave joint="front_right_steer_joint" slave_position="13"/>
+    <xacro:steering_slave joint="rear_left_steer_joint" slave_position="14"/>
+    <xacro:steering_slave joint="rear_right_steer_joint" slave_position="15"/>
+  </xacro:macro>
+</robot>

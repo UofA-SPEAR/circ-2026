@@ -1,0 +1,32 @@
+# Integration contract. This file is documentation/configuration data only; the
+# live arm EtherCAT description is intentionally not modified by this package.
+ethercat:
+  master_id: 0
+  existing_arm_slave_positions: [0, 1, 2, 3, 4, 5]
+  required_physical_order:
+    - {position: 6, joint: front_left_drive_joint, role: drive}
+    - {position: 7, joint: front_right_drive_joint, role: drive}
+    - {position: 8, joint: middle_left_drive_joint, role: drive}
+    - {position: 9, joint: middle_right_drive_joint, role: drive}
+    - {position: 10, joint: rear_left_drive_joint, role: drive}
+    - {position: 11, joint: rear_right_drive_joint, role: drive}
+    - {position: 12, joint: front_left_steer_joint, role: steering}
+    - {position: 13, joint: front_right_steer_joint, role: steering}
+    - {position: 14, joint: rear_left_steer_joint, role: steering}
+    - {position: 15, joint: rear_right_steer_joint, role: steering}
+
+ros_interfaces:
+  drive:
+    command: effort       # motor-shaft torque in N*m
+    state: velocity       # motor encoder velocity in rad/s
+  steering:
+    command: position     # relative motor position in rad; ratio is a ROS parameter
+    state: position       # relative motor encoder position in rad
+
+embedded_confirmation_required:
+  - EtherCAT vendor and product IDs for each embedded slave
+  - RxPDO index/subindex/type for drive effort and steering position
+  - TxPDO index/subindex/type for encoder feedback and fault word
+  - scaling, byte order, signedness, and update rate
+  - whether drive effort is motor N*m or a normalized command
+  - fault behavior and watchdog timeout when cyclic EtherCAT traffic stops
