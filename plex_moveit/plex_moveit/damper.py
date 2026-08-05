@@ -13,7 +13,6 @@ class damper(Node):
         self.x_vel_current = 0.0
         self.last_time = None
 
-
     def pad_cb(self, msg):
         now = self.get_clock().now()
 
@@ -31,20 +30,22 @@ class damper(Node):
     def accel_limiter(self, msg, dt):
         x_vel_target = msg.twist.linear.x
         dv = x_vel_target - self.x_vel_current
+        max_dv = self.max_accel * dt
 
+        dv = min(-max_dv, min(dv, max_dv))
         self.x_vel_current += dv
 
-        max_dv = min()
-
-
+        out = TwistStamped
+        out.header.frame_id = msg.header.frame_id
         
+        out.twist.linear.x = self.x_vel_current
+        out.twist.linear.y = msg.twist.linear.y
+        out.twist.linear.z = msg.twist.linear.z
+        out.twist.angular.z = msg.twist.angular.x
+        out.twist.angular.y = msg.twist.angular.y
+        out.twist.angular.z = msg.twist.angular.z
 
-
-
-
-
-
-
+        return out
 
    
 def main():

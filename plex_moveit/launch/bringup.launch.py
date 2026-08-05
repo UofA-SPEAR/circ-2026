@@ -44,14 +44,17 @@ def generate_launch_description():
         ],
         output ='screen'
     )
-        
-
-
 
     gamepad_node = Node(
         package ="plex_moveit",
         executable="gamepad_to_servo",
         name="gamepad_to_servo"
+    )
+
+    damper_node = Node(
+            package ="plex_moveit",
+            executable="damper",
+            name="damper"
     )
 
     keyboard_node = Node(
@@ -104,9 +107,10 @@ def generate_launch_description():
 
 
     return LaunchDescription([
-        #rviz_node,
+        rviz_node,
         joy_node,
         gamepad_node,
+        damper_node,
         # keyboard_node,
         servo_node,
         #move_group,
