@@ -31,6 +31,7 @@ import gi
 gi.require_version('Gst', '1.0')
 from gi.repository import Gst, GLib
 import threading
+import time
 import sys
 import rclpy
 from rclpy.node import Node
@@ -38,8 +39,15 @@ from std_msgs.msg import String
 
 # ──────────────────────── Config ────────────────────────
 
-RECEIVER_IP = "192.168.8.224"  # IP of the machine receiving the stream
+RECEIVER_IP = "192.168.10.11"  # IP of the machine receiving the stream
 BITRATE     = 4000000           # bits per second
+
+# Auto-reconnect behaviour for streams that die (e.g. the Jetson Argus
+# daemon dropping a camera's socket under load). Backoff doubles per
+# consecutive failure and resets after a stream has run cleanly for a while.
+RETRY_BASE_DELAY   = 2      # seconds before first retry
+RETRY_MAX_DELAY    = 30     # cap on backoff
+RETRY_RESET_AFTER  = 60     # seconds of healthy streaming before backoff resets
 
 CAMERAS = [
     {"camera_sn": 302801647, "source": "zedxonesrc", "port": 5000, "exposure": 10000, "gain": 30000},
@@ -84,6 +92,15 @@ def build_pipeline(source, camera_sn, port, exposure, gain):
 
 # ──────────────────────── Camera Stream ────────────────────────
 
+# Serializes every pipeline open (initial start AND retries) across all
+# streams. Opening a ZED camera blocks for seconds at a time and can hold
+# the GIL while doing it; with several streams retrying concurrently that
+# starved the main thread badly enough that SIGINT (Ctrl+C) stopped being
+# processed at all. It also hammers the Argus daemon with simultaneous
+# open attempts right when it's least able to cope. One at a time avoids both.
+_pipeline_open_lock = threading.Lock()
+
+
 class CameraStream:
     def __init__(self, config, logger):
         self.source    = config["source"]
@@ -97,6 +114,13 @@ class CameraStream:
         self.thread    = None
         self._lock     = threading.Lock()
 
+        self._stopping        = False   # True during an intentional/final stop
+        self._retry_count     = 0
+        self._retry_timer     = None
+        self._retry_scheduled = False   # guards against duplicate retries for one failed attempt
+        self._failure_lock    = threading.Lock()
+        self._started_at      = None
+
     def start(self):
         with self._lock:
             self._start_pipeline()
@@ -105,22 +129,28 @@ class CameraStream:
         pipeline_str = build_pipeline(self.source, self.camera_sn, self.port, self.exposure, self.gain)
         self.logger.info(f"[{self.source} sn {self.camera_sn}] pipeline: {pipeline_str}")
 
-        self.pipeline = Gst.parse_launch(pipeline_str)
-        if not self.pipeline:
-            self.logger.error(f"[{self.source} sn {self.camera_sn}] failed to create pipeline")
-            return
+        # Only one stream may be mid-open (the blocking camera-open call) at
+        # a time — see _pipeline_open_lock above.
+        with _pipeline_open_lock:
+            self.pipeline = Gst.parse_launch(pipeline_str)
+            if not self.pipeline:
+                self.logger.error(f"[{self.source} sn {self.camera_sn}] failed to create pipeline")
+                self._handle_failure()
+                return
 
-        bus = self.pipeline.get_bus()
-        bus.add_signal_watch()
-        self.loop = GLib.MainLoop()
-        bus.connect("message", self._on_message)
+            bus = self.pipeline.get_bus()
+            bus.add_signal_watch()
+            self.loop = GLib.MainLoop()
+            bus.connect("message", self._on_message)
 
-        ret = self.pipeline.set_state(Gst.State.PLAYING)
-        if ret == Gst.StateChangeReturn.FAILURE:
-            self.logger.error(f"[{self.source} sn {self.camera_sn}] failed to set pipeline to PLAYING")
-            return
+            ret = self.pipeline.set_state(Gst.State.PLAYING)
+            if ret == Gst.StateChangeReturn.FAILURE:
+                self.logger.error(f"[{self.source} sn {self.camera_sn}] failed to set pipeline to PLAYING")
+                self._handle_failure()
+                return
 
         self.logger.info(f"[{self.source} sn {self.camera_sn}] streaming to {RECEIVER_IP}:{self.port}")
+        self._started_at = time.monotonic()
         self.thread = threading.Thread(target=self.loop.run, daemon=True)
         self.thread.start()
 
@@ -133,11 +163,15 @@ class CameraStream:
 
         self.logger.info(f"[{self.source} sn {self.camera_sn}] restarting with exposure={self.exposure} gain={self.gain}")
 
+        self._cancel_retry_timer()
+        self._retry_count = 0
         with self._lock:
             self._stop_pipeline()
             self._start_pipeline()
 
     def stop(self):
+        self._stopping = True
+        self._cancel_retry_timer()
         with self._lock:
             self._stop_pipeline()
 
@@ -157,11 +191,58 @@ class CameraStream:
         if message.type == Gst.MessageType.EOS:
             self.logger.info(f"[{self.source} sn {self.camera_sn}] end of stream")
             self.loop.quit()
+            self._handle_failure()
         elif message.type == Gst.MessageType.ERROR:
             err, debug = message.parse_error()
             self.logger.error(f"[{self.source} sn {self.camera_sn}] error: {err}")
             self.logger.error(f"[{self.source} sn {self.camera_sn}] debug: {debug}")
             self.loop.quit()
+            self._handle_failure()
+
+    # ─────────────── Auto-reconnect ───────────────
+    # Runs on the GStreamer bus-callback thread (which is `self.thread`), so
+    # the actual restart is deferred to a timer thread — stop_pipeline()
+    # joins self.thread, and a thread can't join itself.
+
+    def _handle_failure(self):
+        # A single failed open/stream can raise multiple signals for the
+        # same event (a synchronous set_state() FAILURE plus one or more
+        # async bus ERROR messages). Only the first schedules a retry;
+        # the rest are ignored until that retry attempt actually runs.
+        with self._failure_lock:
+            if self._stopping or self._retry_scheduled:
+                return
+            self._retry_scheduled = True
+
+        if self._started_at is not None and (time.monotonic() - self._started_at) > RETRY_RESET_AFTER:
+            self._retry_count = 0
+
+        delay = min(RETRY_BASE_DELAY * (2 ** self._retry_count), RETRY_MAX_DELAY)
+        self._retry_count += 1
+
+        self.logger.warn(
+            f"[{self.source} sn {self.camera_sn}] stream died, retrying in {delay:.0f}s "
+            f"(attempt {self._retry_count})"
+        )
+        self._retry_timer = threading.Timer(delay, self._auto_restart)
+        self._retry_timer.daemon = True
+        self._retry_timer.start()
+
+    def _auto_restart(self):
+        with self._failure_lock:
+            self._retry_scheduled = False
+        if self._stopping:
+            return
+        with self._lock:
+            self._stop_pipeline()
+            self._start_pipeline()
+
+    def _cancel_retry_timer(self):
+        with self._failure_lock:
+            self._retry_scheduled = False
+        if self._retry_timer:
+            self._retry_timer.cancel()
+            self._retry_timer = None
 
 # ──────────────────────── ROS2 Node ────────────────────────
 
@@ -237,7 +318,8 @@ def main():
     finally:
         node.shutdown()
         node.destroy_node()
-        rclpy.shutdown()
+        if rclpy.ok():
+            rclpy.shutdown()
 
 if __name__ == "__main__":
     main()

@@ -33,7 +33,9 @@ setup(
         'console_scripts': [
             'main_gui = spear_gui.main_gui:main',
             'camera_node = spear_gui.camera_node:main',
+            'camera_sender_node = spear_gui.camera_sender_node:main',
             'rover_camera_manager = spear_gui.rover_camera_manager:main',
+            'camera_manager = spear_gui.camera_manager:main',
             'current_motor_vals_gui = spear_gui.current_motor_vals_gui:main',
         ],
     },
