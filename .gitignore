@@ -4,3 +4,6 @@ log/
 build/
 
 debug.txt
+
+
+__pycache__/
