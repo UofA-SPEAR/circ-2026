@@ -1,0 +1,16 @@
+ultimate_gps:
+  ros__parameters:
+    # Change to /dev/spear_gps after installing a stable udev rule.
+    port: /dev/ttyUSB0
+    baud_rate: 9600
+    frame_id: gps_link
+    # RMC course/speed is converted to east/north velocity in this frame.
+    velocity_frame_id: map
+    configure_receiver: true
+    # RMC+GGA at 9600 baud supports 1, 2, or 5 Hz.
+    update_rate_hz: 5
+    reconnect_delay_sec: 2.0
+    stale_after_sec: 2.0
+    # User-equivalent range error used to estimate covariance from HDOP.
+    uere_m: 3.0
+    diagnostics_rate_hz: 1.0

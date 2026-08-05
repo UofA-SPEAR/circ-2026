@@ -1,0 +1,14 @@
+ultimate_gps:
+  ros__parameters:
+    # J30 physical pins 8 (TX) and 10 (RX) normally expose this UART.
+    # Confirm on the installed JetPack image with: ls -l /dev/ttyTHS*
+    port: /dev/ttyTHS1
+    baud_rate: 9600
+    frame_id: gps_link
+    velocity_frame_id: map
+    configure_receiver: true
+    update_rate_hz: 5
+    reconnect_delay_sec: 2.0
+    stale_after_sec: 2.0
+    uere_m: 3.0
+    diagnostics_rate_hz: 1.0
