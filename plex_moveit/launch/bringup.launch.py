@@ -40,7 +40,8 @@ def generate_launch_description():
         package_name="plex_moveit",
     ).to_moveit_configs()
 
-    use_joy = LaunchConfiguration("use_joy")
+    use_gamepad_adapter = LaunchConfiguration("use_gamepad_adapter")
+    start_joy_driver = LaunchConfiguration("start_joy_driver")
     use_rviz = LaunchConfiguration("use_rviz")
     gamepad_device_id = LaunchConfiguration("gamepad_device_id")
 
@@ -48,7 +49,7 @@ def generate_launch_description():
         package="joy",
         executable="game_controller_node",
         name="game_controller",
-        condition=IfCondition(use_joy),
+        condition=IfCondition(start_joy_driver),
         parameters=[
             {
                 "device_id": ParameterValue(
@@ -65,7 +66,7 @@ def generate_launch_description():
         package="plex_moveit",
         executable="gamepad_to_servo",
         name="gamepad_to_servo",
-        condition=IfCondition(use_joy),
+        condition=IfCondition(use_gamepad_adapter),
         parameters=[gamepad_params_path],
         output="screen",
     )
@@ -117,7 +118,18 @@ def generate_launch_description():
 
     return LaunchDescription(
         [
-            DeclareLaunchArgument("use_joy", default_value="true"),
+            DeclareLaunchArgument(
+                "use_gamepad_adapter",
+                default_value="true",
+                description="Run the rover-side Joy safety adapter",
+            ),
+            DeclareLaunchArgument(
+                "start_joy_driver",
+                default_value="false",
+                description=(
+                    "Start a local controller driver for bench testing only"
+                ),
+            ),
             DeclareLaunchArgument("use_rviz", default_value="false"),
             DeclareLaunchArgument(
                 "gamepad_device_id",

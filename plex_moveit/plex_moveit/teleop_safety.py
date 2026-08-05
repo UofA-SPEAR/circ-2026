@@ -65,6 +65,11 @@ def button_pressed(buttons: Sequence[int], index: int) -> bool:
     return 0 <= index < len(buttons) and bool(buttons[index])
 
 
+def joy_publisher_count_valid(count: int, required: bool = True) -> bool:
+    """Allow exactly one Joy source when the source-count lock is enabled."""
+    return not required or count == 1
+
+
 def mapping_available(
     axes: Sequence[float],
     buttons: Sequence[int],

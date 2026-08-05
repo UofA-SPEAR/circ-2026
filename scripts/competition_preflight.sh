@@ -16,6 +16,18 @@ else
   fail "ros2 is unavailable; source /opt/ros/humble/setup.bash"
 fi
 
+if [ "${ROS_LOCALHOST_ONLY:-0}" = "1" ]; then
+  fail "ROS_LOCALHOST_ONLY=1 blocks base-station/rover communication"
+else
+  pass "ROS discovery is not restricted to localhost"
+fi
+
+if [ -n "${ROS_DOMAIN_ID:-}" ]; then
+  pass "ROS_DOMAIN_ID is set to $ROS_DOMAIN_ID"
+else
+  warn "ROS_DOMAIN_ID is unset; explicitly configure the same value on both computers"
+fi
+
 if [ -e "$gps_port" ]; then
   pass "GPS device exists at $gps_port"
   if [ -r "$gps_port" ] && [ -w "$gps_port" ]; then
@@ -42,7 +54,9 @@ fi
 
 if [ -n "$waypoint_file" ]; then
   if [ -f "$waypoint_file" ]; then
-    rows=$(awk -F, 'NR > 1 && $1 !~ /^#/ && $1 != "" {count++} END {print count+0}' "$waypoint_file")
+    rows=$(awk -F, \
+      'NR > 1 && $1 !~ /^#/ && $1 != "" {count++} END {print count+0}' \
+      "$waypoint_file")
     pass "waypoint file exists with $rows target(s)"
     if [ "$rows" -ne 7 ]; then
       warn "Refreshment Delivery normally requires exactly seven ordered gates"

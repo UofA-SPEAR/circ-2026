@@ -52,12 +52,18 @@ ros2 topic pub --once /camera_settings std_msgs/msg/String \
 ## 4. Start the base station
 
 ```bash
-ros2 launch spear_bringup base_station.launch.py
+ros2 launch spear_bringup base_station.launch.py gamepad_device_id:=0
 ```
 
 The focused GPS panel shows fix health, gate order, distance, bearing,
 approach heading, recording state, and capture controls. The larger legacy GUI
 is excluded by default because its data feeds are still demonstrations.
+
+The controller driver runs at the base station and publishes `/joy` over the
+rover radio. The safety adapter and 0.30 s watchdog run on the Jetson beside
+MoveIt Servo, so radio or base-station loss is handled locally. Do not run a
+second `/joy` publisher: the Jetson locks arm control whenever the publisher
+count is not exactly one.
 
 ## 5. Arm control
 
@@ -104,6 +110,10 @@ ros2 topic echo /arm/teleop_check/status
 ros2 topic echo /arm/teleop_check/joint_commands
 ros2 topic echo /arm/teleop_check/twist_commands
 ```
+
+Use the complete measurable sign-off procedure in
+[the arm joystick acceptance test](joystick-acceptance-test.md) before the
+controller is approved for a competition run.
 
 ## 6. GPS operations
 

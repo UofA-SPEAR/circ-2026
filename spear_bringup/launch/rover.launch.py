@@ -74,7 +74,11 @@ def generate_launch_description():
         "plex_moveit",
         "bringup.launch.py",
         use_arm,
-        {"use_joy": "true", "use_rviz": use_rviz},
+        {
+            "use_gamepad_adapter": "true",
+            "start_joy_driver": "false",
+            "use_rviz": use_rviz,
+        },
     )
 
     return LaunchDescription(

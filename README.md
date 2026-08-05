@@ -12,8 +12,11 @@ ros2 launch spear_bringup rover.launch.py \
   waypoint_file:=/home/spearua/circ_waypoints.csv
 
 # Base station
-ros2 launch spear_bringup base_station.launch.py
+ros2 launch spear_bringup base_station.launch.py gamepad_device_id:=0
 ```
+
+The arm controller connects to the base station. Its `/joy` stream crosses the
+rover radio; the fail-safe adapter and timeout remain rover-side.
 
 Build, deployment, task setup, fail-safe checks, and field validation are
 documented in [the competition runbook](docs/competition-runbook.md).

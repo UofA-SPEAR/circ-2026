@@ -22,6 +22,7 @@ from .teleop_safety import (
     ArmingGate,
     ControllerMapping,
     button_pressed,
+    joy_publisher_count_valid,
     joint_velocities,
     mapping_available,
     motion_inputs_neutral,
@@ -55,6 +56,7 @@ class GamepadToServo(Node):
         self.declare_parameter("deadzone", 0.08)
         self.declare_parameter("neutral_threshold", 0.12)
         self.declare_parameter("neutral_hold_sec", 0.15)
+        self.declare_parameter("require_single_joy_publisher", True)
         self.declare_parameter("command_frame", "base_link")
         self.declare_parameter("joy_topic", "/joy")
         self.declare_parameter(
@@ -103,6 +105,10 @@ class GamepadToServo(Node):
         )
         self._command_frame = str(self.get_parameter("command_frame").value)
         joy_topic = str(self.get_parameter("joy_topic").value)
+        self._joy_topic = joy_topic
+        self._require_single_publisher = bool(
+            self.get_parameter("require_single_joy_publisher").value
+        )
         joint_command_topic = str(
             self.get_parameter("joint_command_topic").value
         )
@@ -121,6 +127,7 @@ class GamepadToServo(Node):
         self._last_joy_time = None
         self._timed_out = False
         self._mapping_valid = False
+        self._joy_publisher_count = 0
         self._last_state = "waiting_for_controller"
 
         self._twist_publisher = self.create_publisher(
@@ -223,6 +230,21 @@ class GamepadToServo(Node):
         self._last_joy_time = now
         self._timed_out = False
         self._update_button_history(message)
+
+        self._joy_publisher_count = self.count_publishers(self._joy_topic)
+        if not joy_publisher_count_valid(
+            self._joy_publisher_count,
+            self._require_single_publisher,
+        ):
+            if self._last_state != "joy_publisher_count_invalid":
+                self.get_logger().error(
+                    "Joy publisher count is "
+                    f"{self._joy_publisher_count}; arm requires exactly one"
+                )
+            self._arming_gate.timeout()
+            self._publish_stop()
+            self._set_state("joy_publisher_count_invalid")
+            return
 
         mapping_valid = mapping_available(
             message.axes,
@@ -339,12 +361,23 @@ class GamepadToServo(Node):
             "reason": self._last_state,
             "sensitivity": self._sensitivity,
             "joy_age_sec": None if age is None else round(age, 3),
+            "joy_publishers": self._joy_publisher_count,
         }
         message = String()
         message.data = json.dumps(status, separators=(",", ":"))
         self._status_publisher.publish(message)
 
     def _watchdog(self) -> None:
+        self._joy_publisher_count = self.count_publishers(self._joy_topic)
+        if self._require_single_publisher and self._joy_publisher_count > 1:
+            if self._last_state != "joy_publisher_count_invalid":
+                self._arming_gate.timeout()
+                self._publish_stop()
+                self._set_state("joy_publisher_count_invalid")
+                self.get_logger().error(
+                    "Multiple Joy publishers detected; arm locked"
+                )
+            return
         if self._last_joy_time is None:
             return
         if time.monotonic() - self._last_joy_time <= self._joy_timeout_sec:

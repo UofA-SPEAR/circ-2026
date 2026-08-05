@@ -18,6 +18,7 @@
     deadzone: 0.08
     neutral_threshold: 0.12
     neutral_hold_sec: 0.15
+    require_single_joy_publisher: true
     command_frame: base_link
     joy_topic: /joy
     joint_command_topic: /servo_node/delta_joint_cmds

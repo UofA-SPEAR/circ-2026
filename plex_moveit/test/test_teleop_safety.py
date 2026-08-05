@@ -7,6 +7,7 @@ from plex_moveit.teleop_safety import (
     ControllerMapping,
     axis_value,
     button_pressed,
+    joy_publisher_count_valid,
     joint_velocities,
     mapping_available,
     motion_inputs_neutral,
@@ -49,6 +50,13 @@ def test_standard_mapping_is_available():
         MAPPING,
         (6, 3, 0, 11, 12),
     )
+
+
+def test_exactly_one_joy_publisher_is_required():
+    assert not joy_publisher_count_valid(0)
+    assert joy_publisher_count_valid(1)
+    assert not joy_publisher_count_valid(2)
+    assert joy_publisher_count_valid(0, required=False)
 
 
 def test_neutral_detection_handles_centered_triggers():
