@@ -104,11 +104,11 @@ def generate_launch_description():
 
 
     return LaunchDescription([
-        #rviz_node,
+        rviz_node,
         joy_node,
         gamepad_node,
         # keyboard_node,
         servo_node,
-        #move_group,
+        move_group,
         start_servo,
     ])
