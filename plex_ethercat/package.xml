@@ -3,7 +3,7 @@
 <package format="3">
   <name>plex_ethercat</name>
   <version>0.1.0</version>
-  <description>SPEAR EtherCAT hardware configuration for the PLEX arm.</description>
+  <description>Shared SPEAR EtherCAT hardware configuration for the PLEX arm and rover drivetrain.</description>
   <maintainer email="nathanc54@shaw.ca">nathan</maintainer>
   <license>Proprietary</license>
 
@@ -12,6 +12,7 @@
   <exec_depend>ethercat_driver</exec_depend>
   <exec_depend>ethercat_generic_cia402_drive</exec_depend>
   <exec_depend>ethercat_generic_slave</exec_depend>
+  <exec_depend>spear_drive</exec_depend>
   <exec_depend>xacro</exec_depend>
 
   <test_depend>ament_copyright</test_depend>

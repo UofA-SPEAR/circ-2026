@@ -3,6 +3,7 @@
 #include <algorithm>
 #include <chrono>
 #include <cmath>
+#include <cstdint>
 #include <exception>
 #include <limits>
 #include <utility>
@@ -19,6 +20,15 @@ namespace
 {
 
 constexpr double kPi = 3.14159265358979323846;
+constexpr double kDriveEnabledControlWord = 6.0;
+constexpr double kConfiguredEmbeddedCurrentLimitAmps = 3.0;
+constexpr std::uint32_t kDriveEnabledStatusBit = 1U << 2;
+constexpr char kControlWordInterface[] = "control_word";
+constexpr char kCurrentInterface[] = "current";
+constexpr char kDutyCycleInterface[] = "duty_cycle";
+constexpr char kEncoderCountsInterface[] = "encoder_counts";
+constexpr char kEncoderCountsPerSecondInterface[] = "encoder_counts_per_second";
+constexpr char kStatusWordInterface[] = "status_word";
 
 template<std::size_t Size>
 bool copy_vector(
@@ -44,7 +54,7 @@ bool copy_vector(
   return true;
 }
 
-double clamp_effort(double value, double maximum)
+double clamp_current(double value, double maximum)
 {
   return std::clamp(value, -std::abs(maximum), std::abs(maximum));
 }
@@ -106,6 +116,8 @@ controller_interface::CallbackReturn SpearDriveController::on_init()
     auto_declare<std::vector<double>>("wheel_radius", std::vector<double>(6, 0.13));
     auto_declare<std::vector<double>>("drive_gear_ratio", std::vector<double>(6, 1.0));
     auto_declare<std::vector<double>>(
+      "encoder_counts_per_motor_revolution", std::vector<double>(6, 28.0));
+    auto_declare<std::vector<double>>(
       "drive_direction", {1.0, -1.0, 1.0, -1.0, 1.0, -1.0});
     auto_declare<std::vector<double>>(
       "steering_min", std::vector<double>(4, -0.78));
@@ -135,7 +147,7 @@ controller_interface::CallbackReturn SpearDriveController::on_init()
     auto_declare<double>("velocity_kp", 0.35);
     auto_declare<double>("velocity_ki", 0.0);
     auto_declare<double>("velocity_feedforward", 0.0);
-    auto_declare<double>("max_motor_effort", 2.0);
+    auto_declare<double>("max_motor_current", 2.0);
     auto_declare<double>("integral_limit", 1.0);
     auto_declare<double>("yaw_feedback_gain", 0.25);
     auto_declare<double>("slip_ratio_threshold", 0.30);
@@ -169,7 +181,8 @@ SpearDriveController::command_interface_configuration() const
   controller_interface::InterfaceConfiguration configuration;
   configuration.type = controller_interface::interface_configuration_type::INDIVIDUAL;
   for (const auto & joint : drive_joints_) {
-    configuration.names.push_back(joint + "/" + hardware_interface::HW_IF_EFFORT);
+    configuration.names.push_back(joint + "/" + kCurrentInterface);
+    configuration.names.push_back(joint + "/" + kControlWordInterface);
   }
   for (const auto & joint : steering_joints_) {
     configuration.names.push_back(joint + "/" + hardware_interface::HW_IF_POSITION);
@@ -183,7 +196,11 @@ SpearDriveController::state_interface_configuration() const
   controller_interface::InterfaceConfiguration configuration;
   configuration.type = controller_interface::interface_configuration_type::INDIVIDUAL;
   for (const auto & joint : drive_joints_) {
-    configuration.names.push_back(joint + "/" + hardware_interface::HW_IF_VELOCITY);
+    configuration.names.push_back(joint + "/" + kEncoderCountsPerSecondInterface);
+    configuration.names.push_back(joint + "/" + kEncoderCountsInterface);
+    configuration.names.push_back(joint + "/" + kCurrentInterface);
+    configuration.names.push_back(joint + "/" + kStatusWordInterface);
+    configuration.names.push_back(joint + "/" + kDutyCycleInterface);
   }
   for (const auto & joint : steering_joints_) {
     configuration.names.push_back(joint + "/" + hardware_interface::HW_IF_POSITION);
@@ -201,6 +218,9 @@ bool SpearDriveController::load_parameters()
     !copy_vector(node->get_parameter("wheel_radius").as_double_array(), geometry_.wheel_radius) ||
     !copy_vector(
       node->get_parameter("drive_gear_ratio").as_double_array(), geometry_.drive_gear_ratio) ||
+    !copy_vector(
+      node->get_parameter("encoder_counts_per_motor_revolution").as_double_array(),
+      encoder_counts_per_motor_revolution_) ||
     !copy_vector(
       node->get_parameter("drive_direction").as_double_array(), geometry_.drive_direction) ||
     !copy_vector(
@@ -247,7 +267,7 @@ bool SpearDriveController::load_parameters()
   velocity_kp_ = node->get_parameter("velocity_kp").as_double();
   velocity_ki_ = node->get_parameter("velocity_ki").as_double();
   velocity_feedforward_ = node->get_parameter("velocity_feedforward").as_double();
-  max_motor_effort_ = node->get_parameter("max_motor_effort").as_double();
+  max_motor_current_ = node->get_parameter("max_motor_current").as_double();
   integral_limit_ = node->get_parameter("integral_limit").as_double();
   yaw_feedback_gain_ = node->get_parameter("yaw_feedback_gain").as_double();
   slip_ratio_threshold_ = node->get_parameter("slip_ratio_threshold").as_double();
@@ -299,14 +319,19 @@ bool SpearDriveController::load_parameters()
     std::all_of(
     twist_covariance_diagonal_.begin(), twist_covariance_diagonal_.end(),
     [](double value) {return std::isfinite(value) && value >= 0.0;});
-  const bool scalars_valid = covariance_valid && !imu_topic_.empty() &&
+  const bool encoder_scaling_valid = std::all_of(
+    encoder_counts_per_motor_revolution_.begin(),
+    encoder_counts_per_motor_revolution_.end(),
+    [](double value) {return std::isfinite(value) && value > 0.0;});
+  const bool scalars_valid = covariance_valid && encoder_scaling_valid && !imu_topic_.empty() &&
     std::isfinite(command_timeout_) && command_timeout_ > 0.0 &&
     std::isfinite(imu_timeout_) && imu_timeout_ > 0.0 &&
     std::isfinite(velocity_kp_) && velocity_kp_ >= 0.0 &&
     std::isfinite(velocity_ki_) && velocity_ki_ >= 0.0 &&
     std::isfinite(velocity_feedforward_) && velocity_feedforward_ >= 0.0 &&
     std::isfinite(yaw_feedback_gain_) && yaw_feedback_gain_ >= 0.0 &&
-    std::isfinite(max_motor_effort_) && max_motor_effort_ > 0.0 &&
+    std::isfinite(max_motor_current_) && max_motor_current_ > 0.0 &&
+    max_motor_current_ <= kConfiguredEmbeddedCurrentLimitAmps &&
     std::isfinite(integral_limit_) && integral_limit_ >= 0.0 &&
     slip_ratio_threshold_ >= 0.0 && slip_reference_speed_ > 0.0 &&
     minimum_traction_scale_ >= 0.0 && minimum_traction_scale_ <= 1.0 &&
@@ -380,9 +405,13 @@ bool SpearDriveController::bind_interfaces()
   for (auto & interface : command_interfaces_) {
     for (std::size_t index = 0; index < kDriveWheelCount; ++index) {
       if (interface.get_prefix_name() == drive_joints_[index] &&
-        interface.get_interface_name() == hardware_interface::HW_IF_EFFORT)
+        interface.get_interface_name() == kCurrentInterface)
       {
-        drive_commands_[index] = &interface;
+        drive_current_commands_[index] = &interface;
+      } else if (interface.get_prefix_name() == drive_joints_[index] &&
+        interface.get_interface_name() == kControlWordInterface)
+      {
+        drive_control_word_commands_[index] = &interface;
       }
     }
     for (std::size_t index = 0; index < kSteeringWheelCount; ++index) {
@@ -396,9 +425,25 @@ bool SpearDriveController::bind_interfaces()
   for (auto & interface : state_interfaces_) {
     for (std::size_t index = 0; index < kDriveWheelCount; ++index) {
       if (interface.get_prefix_name() == drive_joints_[index] &&
-        interface.get_interface_name() == hardware_interface::HW_IF_VELOCITY)
+        interface.get_interface_name() == kEncoderCountsPerSecondInterface)
       {
-        drive_states_[index] = &interface;
+        drive_encoder_velocity_states_[index] = &interface;
+      } else if (interface.get_prefix_name() == drive_joints_[index] &&
+        interface.get_interface_name() == kEncoderCountsInterface)
+      {
+        drive_encoder_position_states_[index] = &interface;
+      } else if (interface.get_prefix_name() == drive_joints_[index] &&
+        interface.get_interface_name() == kCurrentInterface)
+      {
+        drive_current_states_[index] = &interface;
+      } else if (interface.get_prefix_name() == drive_joints_[index] &&
+        interface.get_interface_name() == kStatusWordInterface)
+      {
+        drive_status_word_states_[index] = &interface;
+      } else if (interface.get_prefix_name() == drive_joints_[index] &&
+        interface.get_interface_name() == kDutyCycleInterface)
+      {
+        drive_duty_cycle_states_[index] = &interface;
       }
     }
     for (std::size_t index = 0; index < kSteeringWheelCount; ++index) {
@@ -411,9 +456,26 @@ bool SpearDriveController::bind_interfaces()
   }
 
   return std::all_of(
-    drive_commands_.begin(), drive_commands_.end(), [](const auto * value) {return value;}) &&
+    drive_current_commands_.begin(), drive_current_commands_.end(),
+    [](const auto * value) {return value;}) &&
     std::all_of(
-    drive_states_.begin(), drive_states_.end(), [](const auto * value) {return value;}) &&
+    drive_control_word_commands_.begin(), drive_control_word_commands_.end(),
+    [](const auto * value) {return value;}) &&
+    std::all_of(
+    drive_encoder_velocity_states_.begin(), drive_encoder_velocity_states_.end(),
+    [](const auto * value) {return value;}) &&
+    std::all_of(
+    drive_encoder_position_states_.begin(), drive_encoder_position_states_.end(),
+    [](const auto * value) {return value;}) &&
+    std::all_of(
+    drive_current_states_.begin(), drive_current_states_.end(),
+    [](const auto * value) {return value;}) &&
+    std::all_of(
+    drive_status_word_states_.begin(), drive_status_word_states_.end(),
+    [](const auto * value) {return value;}) &&
+    std::all_of(
+    drive_duty_cycle_states_.begin(), drive_duty_cycle_states_.end(),
+    [](const auto * value) {return value;}) &&
     std::all_of(
     steering_commands_.begin(), steering_commands_.end(), [](const auto * value) {return value;}) &&
     std::all_of(
@@ -422,8 +484,13 @@ bool SpearDriveController::bind_interfaces()
 
 void SpearDriveController::release_interfaces()
 {
-  drive_commands_.fill(nullptr);
-  drive_states_.fill(nullptr);
+  drive_current_commands_.fill(nullptr);
+  drive_control_word_commands_.fill(nullptr);
+  drive_encoder_velocity_states_.fill(nullptr);
+  drive_encoder_position_states_.fill(nullptr);
+  drive_current_states_.fill(nullptr);
+  drive_status_word_states_.fill(nullptr);
+  drive_duty_cycle_states_.fill(nullptr);
   steering_commands_.fill(nullptr);
   steering_states_.fill(nullptr);
 }
@@ -432,7 +499,9 @@ controller_interface::CallbackReturn SpearDriveController::on_activate(
   const rclcpp_lifecycle::State &)
 {
   if (!bind_interfaces()) {
-    RCLCPP_ERROR(get_node()->get_logger(), "Could not bind all 6 drive and 4 steering interfaces");
+    RCLCPP_ERROR(
+      get_node()->get_logger(),
+      "Could not bind the verified brushed-DC and steering interfaces");
     return controller_interface::CallbackReturn::ERROR;
   }
 
@@ -447,6 +516,7 @@ controller_interface::CallbackReturn SpearDriveController::on_activate(
   if (auto_zero_on_activate_) {
     capture_steering_zero();
   }
+  set_drive_enable(true);
   mode_.store(static_cast<int>(
       steering_zeroed_ ? OperatingMode::READY : OperatingMode::NOT_ZEROED));
   status_timer_->reset();
@@ -512,11 +582,12 @@ controller_interface::CallbackReturn SpearDriveController::on_shutdown(
 
 void SpearDriveController::halt()
 {
-  for (auto * interface : drive_commands_) {
+  for (auto * interface : drive_current_commands_) {
     if (interface != nullptr) {
       interface->set_value(0.0);
     }
   }
+  set_drive_enable(false);
   for (std::size_t index = 0; index < kSteeringWheelCount; ++index) {
     if (steering_commands_[index] != nullptr && steering_states_[index] != nullptr) {
       const double value = steering_states_[index]->get_value();
@@ -524,6 +595,16 @@ void SpearDriveController::halt()
     }
   }
   velocity_integral_.fill(0.0);
+}
+
+void SpearDriveController::set_drive_enable(bool enabled)
+{
+  const double control_word = enabled ? kDriveEnabledControlWord : 0.0;
+  for (auto * interface : drive_control_word_commands_) {
+    if (interface != nullptr) {
+      interface->set_value(control_word);
+    }
+  }
 }
 
 void SpearDriveController::capture_steering_zero()
@@ -574,10 +655,31 @@ controller_interface::return_type SpearDriveController::update(
   std::array<double, kSteeringWheelCount> steering_position{};
   HealthSnapshot health;
   health.master_healthy = true;
+  set_drive_enable(true);
+  double maximum_measured_current = 0.0;
+  int enabled_drive_count = 0;
   for (std::size_t index = 0; index < kDriveWheelCount; ++index) {
-    motor_velocity[index] = drive_states_[index]->get_value();
-    health.drive_healthy[index] = std::isfinite(motor_velocity[index]);
+    const double raw_velocity = drive_encoder_velocity_states_[index]->get_value();
+    const double status_value = drive_status_word_states_[index]->get_value();
+    const double measured_current = drive_current_states_[index]->get_value();
+    const bool status_valid = std::isfinite(status_value) && status_value >= 0.0;
+    const std::uint32_t status_word = status_valid ?
+      static_cast<std::uint32_t>(status_value) : 0U;
+    const bool drive_enabled = status_valid &&
+      (status_word & kDriveEnabledStatusBit) != 0U;
+    if (drive_enabled) {
+      ++enabled_drive_count;
+    }
+    if (std::isfinite(measured_current)) {
+      maximum_measured_current = std::max(
+        maximum_measured_current, std::abs(measured_current));
+    }
+    motor_velocity[index] = encoder_counts_per_second_to_motor_velocity(
+      raw_velocity, encoder_counts_per_motor_revolution_[index]);
+    health.drive_healthy[index] = std::isfinite(motor_velocity[index]) && drive_enabled;
   }
+  enabled_drive_count_.store(enabled_drive_count);
+  maximum_measured_current_.store(maximum_measured_current);
   for (std::size_t index = 0; index < kSteeringWheelCount; ++index) {
     const double raw = steering_states_[index]->get_value();
     if (steering_zeroed_ && std::isfinite(raw)) {
@@ -656,7 +758,7 @@ controller_interface::return_type SpearDriveController::update(
 
   for (std::size_t index = 0; index < kDriveWheelCount; ++index) {
     if (!decision.drive_enabled[index] || decision.motion_scale <= 0.0) {
-      drive_commands_[index]->set_value(0.0);
+      drive_current_commands_[index]->set_value(0.0);
       velocity_integral_[index] = 0.0;
       last_traction_scale_[index] = 0.0;
       continue;
@@ -689,13 +791,14 @@ controller_interface::return_type SpearDriveController::update(
     last_traction_scale_[index] = traction_scale;
 
     const double side_sign = is_left_wheel(index) ? -1.0 : 1.0;
-    const double yaw_effort = side_sign * yaw_feedback_gain_ * yaw_error *
+    const double yaw_current = side_sign * yaw_feedback_gain_ * yaw_error *
       geometry_.drive_direction[index];
-    const double effort =
+    const double current_command =
       (velocity_feedforward_ * desired_motor_velocity +
       velocity_kp_ * velocity_error +
-      velocity_ki_ * velocity_integral_[index]) * traction_scale + yaw_effort;
-    drive_commands_[index]->set_value(clamp_effort(effort * alignment_scale, max_motor_effort_));
+      velocity_ki_ * velocity_integral_[index]) * traction_scale + yaw_current;
+    drive_current_commands_[index]->set_value(
+      clamp_current(current_command * alignment_scale, max_motor_current_));
   }
 
   for (std::size_t index = 0; index < kSteeringWheelCount; ++index) {
@@ -757,6 +860,10 @@ void SpearDriveController::publish_status()
   status.values.push_back(diagnostic_value("mode", mode_name(mode)));
   status.values.push_back(diagnostic_value(
       "healthy_drive_wheels", std::to_string(healthy_drive_count_.load())));
+  status.values.push_back(diagnostic_value(
+      "enabled_drive_controllers", std::to_string(enabled_drive_count_.load())));
+  status.values.push_back(diagnostic_value(
+      "maximum_measured_current_A", std::to_string(maximum_measured_current_.load())));
   status.values.push_back(diagnostic_value(
       "healthy_steering", std::to_string(healthy_steering_count_.load())));
   status.values.push_back(diagnostic_value(

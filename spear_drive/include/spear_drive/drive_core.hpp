@@ -87,6 +87,10 @@ struct BodyTwistEstimate
 void validate_geometry(const Geometry & geometry);
 void validate_limits(const MotionLimits & limits);
 
+double encoder_counts_per_second_to_motor_velocity(
+  double encoder_counts_per_second,
+  double encoder_counts_per_motor_revolution);
+
 DriveSetpoint compute_drive_setpoint(
   const Geometry & geometry,
   const MotionLimits & limits,

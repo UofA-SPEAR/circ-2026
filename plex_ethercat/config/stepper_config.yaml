@@ -1,4 +1,7 @@
-# Configuration file for ZERO ERR drive
+# Arm joint-6 stepper EtherCAT configuration. The four rover steering slaves
+# provisionally reuse this exact map. Confirm their flashed firmware before
+# powered testing. Do not use this file for the brushed drive controllers: they
+# currently share the same identity but have an incompatible PDO layout.
 vendor_id: 0x00001337
 product_id: 0x000004d2
 auto_fault_reset: true 

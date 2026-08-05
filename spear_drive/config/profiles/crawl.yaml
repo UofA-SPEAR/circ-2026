@@ -5,7 +5,7 @@ spear_drive_controller:
     max_linear_acceleration: 0.20
     max_linear_deceleration: 0.60
     max_yaw_acceleration: 0.35
-    max_motor_effort: 1.0
+    max_motor_current: 1.0
     yaw_feedback_gain: 0.15
 
 drive_teleop:

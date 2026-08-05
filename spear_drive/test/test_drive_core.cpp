@@ -93,6 +93,18 @@ void test_kinematics()
     "odometry recovers commanded yaw rate");
 }
 
+void test_encoder_scaling()
+{
+  constexpr double kPi = 3.14159265358979323846;
+  expect_near(
+    spear_drive::encoder_counts_per_second_to_motor_velocity(28.0, 28.0),
+    2.0 * kPi, 1e-12,
+    "one encoder revolution per second converts to two pi rad/s");
+  expect(std::isnan(
+      spear_drive::encoder_counts_per_second_to_motor_velocity(28.0, 0.0)),
+    "invalid encoder scale produces a non-finite state");
+}
+
 void test_alignment_and_limiter()
 {
   std::array<double, spear_drive::kSteeringWheelCount> measured{};
@@ -102,11 +114,11 @@ void test_alignment_and_limiter()
   requested.fill(0.30);
   expect_near(
     spear_drive::steering_alignment_scale(measured, requested, healthy, 0.08, 0.25),
-    0.0, 1e-12, "drive torque is blocked for badly misaligned steering");
+    0.0, 1e-12, "drive current is blocked for badly misaligned steering");
   requested.fill(0.10);
   const double partial = spear_drive::steering_alignment_scale(
     measured, requested, healthy, 0.08, 0.25);
-  expect(partial > 0.0 && partial < 1.0, "steering alignment tapers drive torque");
+  expect(partial > 0.0 && partial < 1.0, "steering alignment tapers drive current");
 
   spear_drive::CommandLimiter limiter;
   auto constraints = limits();
@@ -190,6 +202,7 @@ void test_joystick_mapping()
 int main()
 {
   test_kinematics();
+  test_encoder_scaling();
   test_alignment_and_limiter();
   test_fault_policy();
   test_joystick_mapping();

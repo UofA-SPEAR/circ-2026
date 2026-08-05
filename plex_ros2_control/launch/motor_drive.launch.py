@@ -31,8 +31,17 @@ def generate_launch_description():
             description='URDF/XACRO description file with the axis.',
         )
     )
+    declared_arguments.append(
+        DeclareLaunchArgument(
+            'use_drive',
+            default_value='false',
+            choices=['true', 'false'],
+            description='Append rover slaves 6-15 to the shared EtherCAT master.',
+        )
+    )
 
     description_file = LaunchConfiguration('description_file')
+    use_drive = LaunchConfiguration('use_drive')
 
     # Get URDF via xacro
     robot_description_content = Command(
@@ -46,6 +55,8 @@ def generate_launch_description():
                     description_file,
                 ]
             ),
+            ' use_drive:=',
+            use_drive,
         ]
     )
     robot_description = {"robot_description": robot_description_content}

@@ -76,6 +76,19 @@ std::size_t steering_index_for_drive(std::size_t drive_index)
 
 }  // namespace
 
+double encoder_counts_per_second_to_motor_velocity(
+  double encoder_counts_per_second,
+  double encoder_counts_per_motor_revolution)
+{
+  if (!std::isfinite(encoder_counts_per_second) ||
+    !finite_positive(encoder_counts_per_motor_revolution))
+  {
+    return std::numeric_limits<double>::quiet_NaN();
+  }
+  return encoder_counts_per_second * 2.0 * kPi /
+    encoder_counts_per_motor_revolution;
+}
+
 void validate_geometry(const Geometry & geometry)
 {
   for (std::size_t index = 0; index < kDriveWheelCount; ++index) {

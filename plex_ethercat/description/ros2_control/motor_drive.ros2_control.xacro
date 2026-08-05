@@ -1,7 +1,8 @@
 <?xml version="1.0"?>
 <robot xmlns:xacro="http://www.ros.org/wiki/xacro">
-  <!-- ZeroErr eRob 5-axis EtherCAT ros2_control description -->
-  <xacro:macro name="plex_ethercat">
+  <xacro:include filename="$(find spear_drive)/description/ros2_control/drive_interfaces.ros2_control.xacro"/>
+  <!-- Shared arm and rover EtherCAT master. Physical slave order is 0-15. -->
+  <xacro:macro name="plex_ethercat" params="use_drive:=false">
     <ros2_control name="plex_ethercat" type="system">
       <hardware>
         <plugin>ethercat_driver/EthercatDriver</plugin>
@@ -137,6 +138,11 @@
           <param name="slave_config">$(find plex_ethercat)/config/stepper_config.yaml</param>
         </ec_module>
       </joint>
+      <xacro:if value="${use_drive}">
+        <xacro:spear_drive_ethercat_joints
+          drive_slave_config="$(find spear_drive)/config/brushed_dc_config.yaml"
+          steering_slave_config="$(find plex_ethercat)/config/stepper_config.yaml"/>
+      </xacro:if>
     </ros2_control>
   </xacro:macro>
 </robot>

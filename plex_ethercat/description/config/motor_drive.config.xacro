@@ -3,7 +3,9 @@
 
   <link name="world"/>
 
+  <xacro:arg name="use_drive" default="false"/>
+
   <xacro:include filename="$(find plex_ethercat)/description/ros2_control/motor_drive.ros2_control.xacro" />
 
-  <xacro:plex_ethercat/>
+  <xacro:plex_ethercat use_drive="$(arg use_drive)"/>
 </robot>

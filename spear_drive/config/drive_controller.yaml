@@ -29,6 +29,10 @@ spear_drive_controller:
     # PLACEHOLDERS: loaded wheel radius and motor-to-wheel reduction.
     wheel_radius: [0.13, 0.13, 0.13, 0.13, 0.13, 0.13]
     drive_gear_ratio: [1.0, 1.0, 1.0, 1.0, 1.0, 1.0]
+    # PLACEHOLDER: measure the raw firmware timer-count change for exactly one
+    # motor-shaft revolution. 28 is the Yellow Jacket nominal starting value,
+    # but the STM32 quadrature mode and the exact motor SKU must be verified.
+    encoder_counts_per_motor_revolution: [28.0, 28.0, 28.0, 28.0, 28.0, 28.0]
     # Converts positive rover-forward velocity into motor encoder direction.
     drive_direction: [1.0, -1.0, 1.0, -1.0, 1.0, -1.0]
 
@@ -62,8 +66,9 @@ spear_drive_controller:
     velocity_kp: 0.35
     velocity_ki: 0.0
     velocity_feedforward: 0.0
-    # Motor-shaft N*m. Confirm the embedded conversion before hardware use.
-    max_motor_effort: 2.0
+    # The velocity loop outputs motor current in A. Embedded clamps at 3 A.
+    # Confirm this value with the electrical team before powered testing.
+    max_motor_current: 2.0
     integral_limit: 1.0
     yaw_feedback_gain: 0.25
     slip_ratio_threshold: 0.30

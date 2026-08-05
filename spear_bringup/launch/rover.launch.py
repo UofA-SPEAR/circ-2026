@@ -7,7 +7,7 @@ from launch import LaunchDescription
 from launch.actions import DeclareLaunchArgument, IncludeLaunchDescription
 from launch.conditions import IfCondition
 from launch.launch_description_sources import PythonLaunchDescriptionSource
-from launch.substitutions import LaunchConfiguration
+from launch.substitutions import LaunchConfiguration, PythonExpression
 from launch_ros.actions import Node
 from launch_ros.parameter_descriptions import ParameterValue
 
@@ -32,6 +32,8 @@ def generate_launch_description():
     use_gps = LaunchConfiguration("use_gps")
     use_cameras = LaunchConfiguration("use_cameras")
     use_arm = LaunchConfiguration("use_arm")
+    use_drive = LaunchConfiguration("use_drive")
+    drive_profile = LaunchConfiguration("drive_profile")
     waypoint_file = LaunchConfiguration("waypoint_file")
     receiver_ip = LaunchConfiguration("receiver_ip")
     camera_bitrate = LaunchConfiguration("camera_bitrate")
@@ -69,6 +71,15 @@ def generate_launch_description():
         "plex_ros2_control",
         "motor_drive.launch.py",
         use_arm,
+        {"use_drive": use_drive},
+    )
+    drive_control = _include(
+        "spear_drive",
+        "load_drive_controller.launch.py",
+        PythonExpression(
+            ["'", use_arm, "' == 'true' and '", use_drive, "' == 'true'"]
+        ),
+        {"profile": drive_profile},
     )
     arm_servo = _include(
         "plex_moveit",
@@ -86,6 +97,12 @@ def generate_launch_description():
             DeclareLaunchArgument("use_gps", default_value="true"),
             DeclareLaunchArgument("use_cameras", default_value="true"),
             DeclareLaunchArgument("use_arm", default_value="true"),
+            DeclareLaunchArgument("use_drive", default_value="true"),
+            DeclareLaunchArgument(
+                "drive_profile",
+                default_value="crawl",
+                choices=["crawl", "wet", "normal"],
+            ),
             DeclareLaunchArgument("use_rviz", default_value="false"),
             DeclareLaunchArgument(
                 "waypoint_file",
@@ -101,6 +118,7 @@ def generate_launch_description():
             gps,
             camera_sender,
             arm_control,
+            drive_control,
             arm_servo,
         ]
     )

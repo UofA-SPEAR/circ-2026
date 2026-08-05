@@ -70,6 +70,7 @@ private:
   bool bind_interfaces();
   void release_interfaces();
   void halt();
+  void set_drive_enable(bool enabled);
   void capture_steering_zero();
   void publish_status();
   void request_zero(
@@ -89,7 +90,7 @@ private:
   double velocity_kp_{0.35};
   double velocity_ki_{0.0};
   double velocity_feedforward_{0.0};
-  double max_motor_effort_{2.0};
+  double max_motor_current_{2.0};
   double integral_limit_{1.0};
   double yaw_feedback_gain_{0.25};
   double slip_ratio_threshold_{0.30};
@@ -101,11 +102,22 @@ private:
   std::string imu_topic_{"~/imu"};
   std::string odom_frame_{"odom"};
   std::string base_frame_{"base_link"};
+  std::array<double, kDriveWheelCount> encoder_counts_per_motor_revolution_{};
 
   std::array<hardware_interface::LoanedCommandInterface *, kDriveWheelCount>
-  drive_commands_{};
+  drive_current_commands_{};
+  std::array<hardware_interface::LoanedCommandInterface *, kDriveWheelCount>
+  drive_control_word_commands_{};
   std::array<hardware_interface::LoanedStateInterface *, kDriveWheelCount>
-  drive_states_{};
+  drive_encoder_velocity_states_{};
+  std::array<hardware_interface::LoanedStateInterface *, kDriveWheelCount>
+  drive_encoder_position_states_{};
+  std::array<hardware_interface::LoanedStateInterface *, kDriveWheelCount>
+  drive_current_states_{};
+  std::array<hardware_interface::LoanedStateInterface *, kDriveWheelCount>
+  drive_status_word_states_{};
+  std::array<hardware_interface::LoanedStateInterface *, kDriveWheelCount>
+  drive_duty_cycle_states_{};
   std::array<hardware_interface::LoanedCommandInterface *, kSteeringWheelCount>
   steering_commands_{};
   std::array<hardware_interface::LoanedStateInterface *, kSteeringWheelCount>
@@ -136,7 +148,9 @@ private:
   std::atomic<double> odom_yaw_{0.0};
   std::atomic<double> last_motion_scale_{0.0};
   std::atomic<int> healthy_drive_count_{0};
+  std::atomic<int> enabled_drive_count_{0};
   std::atomic<int> healthy_steering_count_{0};
+  std::atomic<double> maximum_measured_current_{0.0};
   std::atomic_bool command_is_fresh_{false};
   std::atomic_bool imu_is_fresh_{false};
   std::atomic_bool motion_requested_{false};

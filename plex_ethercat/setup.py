@@ -21,7 +21,7 @@ setup(
     zip_safe=True,
     maintainer='nathan',
     maintainer_email='nathanc54@shaw.ca',
-    description='SPEAR EtherCAT hardware configuration for the PLEX arm',
+    description='Shared SPEAR EtherCAT configuration for the PLEX arm and rover drive',
     license='Proprietary',
     extras_require={
         'test': [

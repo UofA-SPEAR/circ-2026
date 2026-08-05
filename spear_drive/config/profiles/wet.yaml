@@ -7,7 +7,7 @@ spear_drive_controller:
     max_linear_deceleration: 0.55
     max_yaw_acceleration: 0.40
     max_jerk: 0.90
-    max_motor_effort: 1.4
+    max_motor_current: 1.4
     yaw_feedback_gain: 0.18
     slip_ratio_threshold: 0.18
     minimum_traction_scale: 0.20

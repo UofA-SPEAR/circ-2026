@@ -45,8 +45,21 @@
 
     <xacro:macro name="mock_drive" params="joint">
       <joint name="${joint}">
-        <command_interface name="effort"/>
-        <state_interface name="velocity">
+        <command_interface name="current"/>
+        <command_interface name="control_word"/>
+        <state_interface name="status_word">
+          <param name="initial_value">4.0</param>
+        </state_interface>
+        <state_interface name="current">
+          <param name="initial_value">0.0</param>
+        </state_interface>
+        <state_interface name="encoder_counts_per_second">
+          <param name="initial_value">0.0</param>
+        </state_interface>
+        <state_interface name="encoder_counts">
+          <param name="initial_value">0.0</param>
+        </state_interface>
+        <state_interface name="duty_cycle">
           <param name="initial_value">0.0</param>
         </state_interface>
       </joint>

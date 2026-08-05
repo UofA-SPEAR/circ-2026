@@ -1,5 +1,5 @@
-# Integration contract. This file is documentation/configuration data only; the
-# live arm EtherCAT description is intentionally not modified by this package.
+# Live EtherCAT integration contract. plex_ethercat includes the drivetrain
+# macro in its existing master-0 ros2_control system.
 ethercat:
   master_id: 0
   existing_arm_slave_positions: [0, 1, 2, 3, 4, 5]
@@ -17,16 +17,17 @@ ethercat:
 
 ros_interfaces:
   drive:
-    command: effort       # motor-shaft torque in N*m
-    state: velocity       # motor encoder velocity in rad/s
+    command: current      # A in ROS; PDO converts to embedded mA
+    control: control_word # 6 while active, 0 while inactive
+    velocity_state: encoder_counts_per_second
+    feedback: [status_word, current, encoder_counts, duty_cycle]
   steering:
     command: position     # relative motor position in rad; ratio is a ROS parameter
     state: position       # relative motor encoder position in rad
 
 embedded_confirmation_required:
-  - EtherCAT vendor and product IDs for each embedded slave
-  - RxPDO index/subindex/type for drive effort and steering position
-  - TxPDO index/subindex/type for encoder feedback and fault word
-  - scaling, byte order, signedness, and update rate
-  - whether drive effort is motor N*m or a normalized command
-  - fault behavior and watchdog timeout when cyclic EtherCAT traffic stops
+  - Verify measured encoder timer counts per motor-shaft revolution
+  - Confirm the 3 A embedded current limit against the finished electronics
+  - Confirm steering boards run the same EtherCAT firmware as arm joint 6
+  - Confirm the physical cable order matches positions 6 through 15
+  - Assign distinct product/revision identities to brushed and stepper firmware

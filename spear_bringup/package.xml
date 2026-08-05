@@ -15,6 +15,7 @@
   <exec_depend>launch_ros</exec_depend>
   <exec_depend>plex_moveit</exec_depend>
   <exec_depend>plex_ros2_control</exec_depend>
+  <exec_depend>spear_drive</exec_depend>
   <exec_depend>spear_gui</exec_depend>
   <exec_depend>ultimate_gps_ros2</exec_depend>
 

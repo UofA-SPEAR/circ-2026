@@ -3,16 +3,21 @@
   <!--
     Call this macro inside the ONE existing master-0 ros2_control system after
     the arm joints. Running a second EtherCAT master for the drivetrain is not
-    supported. The two slave configuration paths must come from the embedded
-    team's final PDO descriptions; this package intentionally does not invent
-    vendor IDs, object indexes, data types, or scaling.
+    supported. The brushed-DC mapping is verified against the current embedded
+    repository; steering remains provisional until the flashed boards are
+    confirmed to match the arm stepper firmware.
   -->
   <xacro:macro name="spear_drive_ethercat_joints"
       params="drive_slave_config steering_slave_config">
     <xacro:macro name="drive_slave" params="joint slave_position">
       <joint name="${joint}">
-        <command_interface name="effort"/>
-        <state_interface name="velocity"/>
+        <command_interface name="current"/>
+        <command_interface name="control_word"/>
+        <state_interface name="status_word"/>
+        <state_interface name="current"/>
+        <state_interface name="encoder_counts_per_second"/>
+        <state_interface name="encoder_counts"/>
+        <state_interface name="duty_cycle"/>
         <ec_module name="${joint}_ethercat">
           <plugin>ethercat_generic_plugins/GenericEcSlave</plugin>
           <param name="alias">0</param>
@@ -24,8 +29,13 @@
 
     <xacro:macro name="steering_slave" params="joint slave_position">
       <joint name="${joint}">
+        <!-- The unused interfaces preserve the arm stepper's fixed PDO map. -->
+        <command_interface name="control_word"/>
         <command_interface name="position"/>
+        <command_interface name="velocity"/>
+        <state_interface name="status_word"/>
         <state_interface name="position"/>
+        <state_interface name="velocity"/>
         <ec_module name="${joint}_ethercat">
           <plugin>ethercat_generic_plugins/GenericEcSlave</plugin>
           <param name="alias">0</param>
