@@ -14,10 +14,16 @@ and the CIRC 2026 rover workspace.
 | `/gps/time_reference` | `sensor_msgs/msg/TimeReference` | UTC time from RMC |
 | `/diagnostics` | `diagnostic_msgs/msg/DiagnosticArray` | Serial, fix, stream, and configuration health |
 | `/gps/reconfigure` | `std_srvs/srv/Trigger` | Resend receiver output/rate commands |
+| `/gps/mission/status` | `std_msgs/msg/String` | JSON fix, recording, waypoint, distance, and bearing state |
 
 The node validates NMEA checksums, accepts talker IDs such as `GP` and `GN`,
 publishes an explicit no-fix state, rate-limits repeated errors, and reconnects
 when the serial adapter is unplugged and restored.
+
+The Jetson competition launch also starts `gps_mission_node`. It records valid
+fixes and raw NMEA onboard, loads ordered gate waypoints from CSV, calculates
+distance/bearing, captures averaged field sites, and updates GeoJSON atomically.
+See `docs/competition-runbook.md` at the workspace root for the operator flow.
 
 ## Wiring
 

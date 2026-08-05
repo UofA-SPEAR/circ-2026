@@ -1,6 +1,6 @@
 # CIRC 2026 GPS Subsystem Requirements and Delivery Plan
 
-Status: proposed baseline
+Status: competition implementation baseline; field validation pending
 
 Date: 2026-08-04
 
@@ -58,11 +58,16 @@ The repository is a ROS 2 Humble-style workspace. It currently contains:
 
 - `spear_gui`: an operator GUI with a map image, manually entered coordinate
   markers, bearing graphics, and an in-memory route trace.
-- `ultimate_gps_ros2`: a newly implemented hardware driver package, pending a
-  ROS 2 Humble build and validation with the final GPS/serial hardware.
-- No live GPS subscription in the GUI.
-- No GPS diagnostics, mission/session recorder, persistent route export,
-  waypoint queue, or site-capture workflow.
+- `ultimate_gps_ros2`: a ROS 2 Humble hardware driver that has received valid
+  NMEA on the Jetson UART; an outdoor position fix remains to be validated.
+- `gps_mission_node`: ordered CSV waypoints, operator distance/bearing,
+  onboard CSV/raw-NMEA recording, averaged site/landmark capture, and atomic
+  GeoJSON export.
+- `gps_mission_panel`: a focused base-station display and deliberate controls
+  for waypoint progression, recording, and site capture.
+- `gps_route_map`: offline PNG/PDF generation from a recorded session.
+- GPS diagnostics include serial, receiver-fix, data-rate, checksum, stale,
+  configuration, and reconnect state.
 - No rover-base wheel odometry, IMU driver, localization EKF,
   `navsat_transform_node`, or Nav2 integration in this repository.
 - Map bounds are currently hard-coded. This is not safe for a competition map

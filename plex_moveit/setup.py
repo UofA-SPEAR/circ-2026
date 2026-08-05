@@ -6,7 +6,7 @@ package_name = 'plex_moveit'
 
 setup(
     name=package_name,
-    version='0.0.0',
+    version='0.1.0',
     packages=find_packages(exclude=['test']),
     data_files=[
         ('share/ament_index/resource_index/packages',
@@ -21,8 +21,8 @@ setup(
     zip_safe=True,
     maintainer='nathan',
     maintainer_email='nathanc54@shaw.ca',
-    description='TODO: Package description',
-    license='TODO: License declaration',
+    description='MoveIt planning and fail-safe teleoperation for the PLEX arm',
+    license='Proprietary',
     extras_require={
         'test': [
             'pytest',

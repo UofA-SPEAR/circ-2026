@@ -1,26 +1,22 @@
 <?xml version="1.0"?>
 <?xml-model href="http://download.ros.org/schema/package_format3.xsd" schematypens="http://www.w3.org/2001/XMLSchema"?>
 <package format="3">
-  <name>spear_gui</name>
+  <name>spear_bringup</name>
   <version>0.1.0</version>
-  <description>SPEAR rover camera and operator interfaces.</description>
+  <description>Reproducible rover and base-station launch files for CIRC.</description>
   <maintainer email="software@spearrobotics.ca">UAlberta SPEAR</maintainer>
   <license>Proprietary</license>
 
   <buildtool_depend>ament_python</buildtool_depend>
 
-  <depend>rclpy</depend>
-  <exec_depend>std_msgs</exec_depend>
   <exec_depend>ament_index_python</exec_depend>
   <exec_depend>launch</exec_depend>
   <exec_depend>launch_ros</exec_depend>
-  <exec_depend>python3-gi</exec_depend>
-  <exec_depend>python3-gst-1.0</exec_depend>
-  <exec_depend>python3-pyside6.qtcore</exec_depend>
-  <exec_depend>python3-pyside6.qtwidgets</exec_depend>
-  <exec_depend>std_srvs</exec_depend>
+  <exec_depend>plex_moveit</exec_depend>
+  <exec_depend>plex_ros2_control</exec_depend>
+  <exec_depend>spear_gui</exec_depend>
+  <exec_depend>ultimate_gps_ros2</exec_depend>
 
-  <test_depend>ament_copyright</test_depend>
   <test_depend>ament_flake8</test_depend>
   <test_depend>ament_pep257</test_depend>
   <test_depend>python3-pytest</test_depend>

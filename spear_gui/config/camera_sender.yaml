@@ -1,0 +1,6 @@
+camera_sender_node:
+  ros__parameters:
+    receiver_ip: 192.168.8.224
+    # Eight enabled cameras use about 12 Mbit/s plus transport overhead.
+    bitrate: 1500000
+    enabled_ports: [5000, 5001, 5002, 5003, 5004, 5005, 5006, 5007]

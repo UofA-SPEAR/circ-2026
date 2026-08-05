@@ -22,7 +22,7 @@ setup(
         ),
         (
             os.path.join("share", package_name, "config"),
-            glob("config/*.yaml"),
+            glob("config/*"),
         ),
         (
             os.path.join("share", package_name, "udev"),
@@ -42,6 +42,8 @@ setup(
         "console_scripts": [
             "gps_serial_probe = ultimate_gps_ros2.serial_probe:main",
             "ultimate_gps_node = ultimate_gps_ros2.gps_node:main",
+            "gps_mission_node = ultimate_gps_ros2.mission_node:main",
+            "gps_route_map = ultimate_gps_ros2.route_map:main",
         ],
     },
 )

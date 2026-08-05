@@ -1,0 +1,10 @@
+gps_mission:
+  ros__parameters:
+    # Set at task setup, then call /gps/mission/reload_waypoints.
+    waypoints_file: ""
+    output_root: ~/.ros/spear_gps_sessions
+    session_name: circ_competition
+    auto_start_recording: true
+    capture_window_sec: 10.0
+    minimum_site_separation_m: 10.0
+    fix_stale_after_sec: 2.0
