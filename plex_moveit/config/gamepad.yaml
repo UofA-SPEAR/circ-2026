@@ -1,0 +1,25 @@
+/**:
+  ros__parameters:
+    # SDL's standardized game-controller layout. See docs/competition-runbook.md.
+    deadman_button: 6          # START / OPTIONS
+    mode_button: 3             # Y / TRIANGLE (only while disarmed)
+    sensitivity_button: 0      # A / CROSS (only while disarmed)
+    dpad_up_button: 11
+    dpad_down_button: 12
+    left_x_axis: 0
+    left_y_axis: 1
+    right_x_axis: 2
+    right_y_axis: 3
+    left_trigger_axis: 4
+    right_trigger_axis: 5
+    left_shoulder_button: 9
+    right_shoulder_button: 10
+    joy_timeout_sec: 0.30
+    deadzone: 0.08
+    neutral_threshold: 0.12
+    neutral_hold_sec: 0.15
+    command_frame: base_link
+    joy_topic: /joy
+    joint_command_topic: /servo_node/delta_joint_cmds
+    twist_command_topic: /servo_node/delta_twist_cmds
+    status_topic: /arm/teleop/status

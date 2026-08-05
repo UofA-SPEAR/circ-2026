@@ -61,13 +61,49 @@ is excluded by default because its data feeds are still demonstrations.
 
 ## 5. Arm control
 
-- Verify controller indexes using `ros2 topic echo /joy` before enabling power.
-- The default deadman is button index 6.
-- Motion is permitted only while the deadman is held.
-- Releasing it or losing Joy messages for 0.30 seconds commands a stop.
+- The launch uses ROS `game_controller_node`, which normalizes supported Xbox,
+  PlayStation, and similar controllers to SDL's standard layout.
+- Run `ros2 run joy joy_enumerate_devices` and select another controller with
+  `gamepad_device_id:=N` if device 0 is not the arm controller.
+- The default deadman is START/OPTIONS (standard button index 6).
+- After startup or reconnect, release START/OPTIONS once. Center both sticks,
+  release the shoulders/triggers, and hold START/OPTIONS for at least 0.15 s.
+- Motion is permitted only while the deadman remains held. A held stick cannot
+  arm the system; the status topic reports `neutral_required`.
+- Releasing the deadman or losing Joy messages for 0.30 seconds commands a
+  stop. After a timeout, another observed deadman release is mandatory.
+- Change mode with Y/TRIANGLE and sensitivity with A/CROSS or D-pad up/down
+  only while the deadman is released. Status is published as JSON on
+  `/arm/teleop/status`.
 - Begin at the lowest sensitivity and test every joint clear of people.
 - Confirm the physical rover kill switch and independent remote motion stop;
   software stopping does not replace either control.
+
+Standard motion mapping:
+
+| Control | Joint mode | Cartesian mode |
+| --- | --- | --- |
+| Left stick X / Y | Joints 1 / 2 | Linear Y / X |
+| Right stick X / Y | Joints 4 / 3 | Angular X / Y |
+| Left / right trigger | Joint 6 differential | Linear Z differential |
+| Left / right shoulder | Joint 5 differential | Angular Z differential |
+
+Validate the complete controller mapping before enabling the arm hardware:
+
+```bash
+ros2 launch plex_moveit gamepad_check.launch.py gamepad_device_id:=0
+```
+
+This check launch publishes only to isolated `/arm/teleop_check/*` topics; it
+does not feed MoveIt Servo. In another terminal, inspect the status and mapped
+commands while testing the release, neutral, deadman, disconnect, mode, and
+sensitivity behavior:
+
+```bash
+ros2 topic echo /arm/teleop_check/status
+ros2 topic echo /arm/teleop_check/joint_commands
+ros2 topic echo /arm/teleop_check/twist_commands
+```
 
 ## 6. GPS operations
 

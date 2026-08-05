@@ -14,6 +14,7 @@ from launch.conditions import IfCondition
 from launch.launch_description_sources import PythonLaunchDescriptionSource
 from launch.substitutions import LaunchConfiguration
 from launch_ros.actions import Node
+from launch_ros.parameter_descriptions import ParameterValue
 from moveit_configs_utils import MoveItConfigsBuilder
 import yaml
 
@@ -26,6 +27,11 @@ def generate_launch_description():
         "config",
         "servo_params.yaml",
     )
+    gamepad_params_path = os.path.join(
+        package_share,
+        "config",
+        "gamepad.yaml",
+    )
     with open(servo_params_path, "r", encoding="utf-8") as stream:
         servo_yaml = yaml.safe_load(stream)
 
@@ -36,13 +42,23 @@ def generate_launch_description():
 
     use_joy = LaunchConfiguration("use_joy")
     use_rviz = LaunchConfiguration("use_rviz")
+    gamepad_device_id = LaunchConfiguration("gamepad_device_id")
 
     joy_node = Node(
         package="joy",
-        executable="joy_node",
-        name="joy_node",
+        executable="game_controller_node",
+        name="game_controller",
         condition=IfCondition(use_joy),
-        parameters=[{"autorepeat_rate": 30.0, "deadzone": 0.08}],
+        parameters=[
+            {
+                "device_id": ParameterValue(
+                    gamepad_device_id,
+                    value_type=int,
+                ),
+                "autorepeat_rate": 30.0,
+                "deadzone": 0.08,
+            }
+        ],
         output="screen",
     )
     gamepad_node = Node(
@@ -50,6 +66,7 @@ def generate_launch_description():
         executable="gamepad_to_servo",
         name="gamepad_to_servo",
         condition=IfCondition(use_joy),
+        parameters=[gamepad_params_path],
         output="screen",
     )
     servo_node = Node(
@@ -102,6 +119,11 @@ def generate_launch_description():
         [
             DeclareLaunchArgument("use_joy", default_value="true"),
             DeclareLaunchArgument("use_rviz", default_value="false"),
+            DeclareLaunchArgument(
+                "gamepad_device_id",
+                default_value="0",
+                description="SDL game-controller device index",
+            ),
             joy_node,
             gamepad_node,
             servo_node,
