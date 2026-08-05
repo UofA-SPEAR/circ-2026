@@ -11,6 +11,7 @@ class gamepad_to_servo(Node):
         self.joy_sub = self.create_subscription(Joy, '/joy', self.joy_cb, 10)
         self.twist_pub = self.create_publisher(TwistStamped, '/servo_node/delta_twist_cmds', 10)
         self.joint_pub = self.create_publisher(JointJog, '/servo_node/delta_joint_cmds', 10)
+        # self.joint_pub = self.create_publisher(TwistStamped, '/pad_chatter', 10)
         self.joint_mode = True
         self.last_button_press = None
 
@@ -84,7 +85,6 @@ class gamepad_to_servo(Node):
         twist.twist.linear.y = msg.axes[0]*self.sens   # left-right
         twist.twist.linear.z = ((msg.axes[2] - msg.axes[5])/2)*self.sens   # up-down 
 
-
         twist.twist.angular.x = ((msg.buttons[4] - msg.buttons[5]))*self.sens*2*-1
         twist.twist.angular.y = msg.axes[4]*self.sens*2
         twist.twist.angular.z = msg.axes[3]*self.sens*2
@@ -100,24 +100,3 @@ def main():
     rclpy.init()
     rclpy.spin(gamepad_to_servo())
 
-
-"""
-def joy_cb(self, msg):
-        # Toggle mode with a button press, e.g. Y button (index 3 on Xbox)
-        if msg.buttons[3] and not self.last_button_press:
-            self.joint_mode = not self.joint_mode
-            self.get_logger().info(f'Joint mode = {self.joint_mode}')
-        self.last_button_press = msg.buttons[3]
-
-        # Cycle sensitivity with A button (index 0) -- verify mapping on your gamepad
-        if msg.buttons[0] and not self.last_sens_button_press:
-            self.sens_idx = (self.sens_idx + 1) % len(self.sens_levels)
-            self.sens = self.sens_levels[self.sens_idx]
-            self.get_logger().info(f'Sensitivity = {self.sens}')
-        self.last_sens_button_press = msg.buttons[0]
-
-        if self.joint_mode:
-            self.publish_joint_cmds(msg)
-        else:
-            self.publish_twist_cmds(msg)
-"""
