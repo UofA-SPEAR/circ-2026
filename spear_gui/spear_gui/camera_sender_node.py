@@ -12,12 +12,11 @@ only ever take down its own process, never the other cameras.
 Listens on /camera_settings (shared across all camera nodes) and only acts
 on messages addressed to its own port; ignores everything else.
 
-Actual camera opens are staggered across all running instances via a flock
-on a shared file (see _StaggeredOpen) — launching several cameras at once
-means several simultaneous cold-opens hammering the camera daemons/hardware
-at once, which is real load, not just a Python-level concern. The wait is
-bounded so one wedged camera can only delay the others, not block them
-forever.
+Actual camera opens are serialized across all running instances via a flock
+on a shared file (see _StaggeredOpen). The process keeps that startup gate
+until its first encoded buffer arrives, rather than releasing it when the
+asynchronous PLAYING transition is merely requested. The wait is bounded so
+one wedged camera can only delay the others, not block them forever.
 
 Usage (standalone, for testing one camera):
     ros2 run spear_gui camera_sender_node --ros-args \\
@@ -41,6 +40,8 @@ import rclpy
 from rclpy.node import Node
 from std_msgs.msg import String
 
+from spear_gui.camera_pipeline import build_pipeline
+
 # Auto-reconnect behaviour for a stream that dies (e.g. the Jetson Argus
 # daemon dropping the camera's socket under load). Backoff doubles per
 # consecutive failure and resets after the stream has run cleanly for a
@@ -61,6 +62,12 @@ RETRY_RESET_AFTER = 60   # seconds of healthy streaming before backoff resets
 _OPEN_LOCK_PATH    = "/tmp/.camera_sender_open.lock"
 _OPEN_LOCK_TIMEOUT = 60    # seconds to wait for another camera to finish opening
 _OPEN_LOCK_POLL    = 0.2
+
+# A process does not release the global startup gate merely because GStreamer
+# accepted PLAYING. It holds the gate until an encoded RTP buffer is observed,
+# or until this timeout expires. This is the important distinction between a
+# requested state transition and a camera that is genuinely producing frames.
+FIRST_BUFFER_TIMEOUT = 20.0
 
 
 class _StaggeredOpen:
@@ -99,33 +106,6 @@ class _StaggeredOpen:
             self._fd.close()
 
 
-def build_pipeline(source, camera_sn, receiver_ip, port, bitrate, exposure, gain):
-    if source == "zedxonesrc":
-        src_props = (
-            f"camera-sn={camera_sn} "
-            f"ctrl-auto-exposure=false "
-            f"ctrl-auto-exposure-range-min={exposure} "
-            f"ctrl-auto-exposure-range-max={exposure} "
-            f"ctrl-exposure-time={exposure} "
-            f"ctrl-analog-gain={gain} "
-        )
-    else:
-        src_props = f"camera-sn={camera_sn} "
-
-    return (
-        f"{source} {src_props}"
-        f"! queue "
-        f"! videoconvert "
-        f"! video/x-raw,format=BGRx "
-        f"! nvvidconv "
-        f"! video/x-raw(memory:NVMM),format=NV12 "
-        f"! nvv4l2h265enc bitrate={bitrate} preset-level=2 "
-        f"! h265parse "
-        f"! rtph265pay config-interval=1 pt=96 "
-        f"! udpsink host={receiver_ip} port={port} sync=false"
-    )
-
-
 class CameraSenderNode(Node):
     def __init__(self):
         super().__init__('camera_sender_node')
@@ -138,6 +118,10 @@ class CameraSenderNode(Node):
         self.declare_parameter('bitrate', 4000000)
         self.declare_parameter('exposure', 10000)
         self.declare_parameter('gain', 30000)
+        self.declare_parameter('camera_resolution', 2)
+        self.declare_parameter('camera_fps', 30)
+        self.declare_parameter('stream_type', 0)
+        self.declare_parameter('first_buffer_timeout', FIRST_BUFFER_TIMEOUT)
 
         self.camera_sn   = self.get_parameter('camera_sn').value
         self.source      = self.get_parameter('source').value
@@ -146,6 +130,12 @@ class CameraSenderNode(Node):
         self.bitrate     = self.get_parameter('bitrate').value
         self.exposure    = self.get_parameter('exposure').value
         self.gain        = self.get_parameter('gain').value
+        self.camera_resolution = self.get_parameter('camera_resolution').value
+        self.camera_fps = self.get_parameter('camera_fps').value
+        self.stream_type = self.get_parameter('stream_type').value
+        self.first_buffer_timeout = self.get_parameter(
+            'first_buffer_timeout'
+        ).value
 
         self.pipeline = None
         self.loop     = None
@@ -158,6 +148,8 @@ class CameraSenderNode(Node):
         self._retry_scheduled = False   # guards against duplicate retries for one failed attempt
         self._failure_lock    = threading.Lock()
         self._started_at      = None
+        self._startup_event   = threading.Event()
+        self._first_buffer_seen = False
 
         # Heartbeat for an external watchdog: as long as this process is
         # alive and not wedged, `status` publishes periodically. A watchdog
@@ -182,16 +174,27 @@ class CameraSenderNode(Node):
             self._start_pipeline()
 
     def _start_pipeline(self):
+        self._startup_event.clear()
+        self._first_buffer_seen = False
+        self._set_status('opening')
+
         pipeline_str = build_pipeline(
             self.source, self.camera_sn, self.receiver_ip, self.port,
             self.bitrate, self.exposure, self.gain,
+            self.camera_resolution, self.camera_fps, self.stream_type,
         )
         self.get_logger().info(f"pipeline: {pipeline_str}")
 
         # Stagger the actual open against every other camera_sender_node
         # process — see _StaggeredOpen above.
         with _StaggeredOpen(self.get_logger(), f"port {self.port}: "):
-            self.pipeline = Gst.parse_launch(pipeline_str)
+            try:
+                self.pipeline = Gst.parse_launch(pipeline_str)
+            except GLib.Error as exc:
+                self.get_logger().error(f"failed to create pipeline: {exc}")
+                self._handle_failure()
+                return
+
             if not self.pipeline:
                 self.get_logger().error("failed to create pipeline")
                 self._handle_failure()
@@ -202,17 +205,56 @@ class CameraSenderNode(Node):
             self.loop = GLib.MainLoop()
             bus.connect("message", self._on_message)
 
+            payloader = self.pipeline.get_by_name('pay')
+            if payloader is None:
+                self.get_logger().error("pipeline has no RTP payloader")
+                self._handle_failure()
+                self._stop_pipeline()
+                return
+
+            payloader.get_static_pad('src').add_probe(
+                Gst.PadProbeType.BUFFER,
+                self._on_first_encoded_buffer,
+            )
+
+            # Run the bus loop before requesting PLAYING so asynchronous
+            # startup errors can wake the first-buffer wait immediately.
+            self.thread = threading.Thread(target=self.loop.run, daemon=True)
+            self.thread.start()
+
             ret = self.pipeline.set_state(Gst.State.PLAYING)
             if ret == Gst.StateChangeReturn.FAILURE:
                 self.get_logger().error("failed to set pipeline to PLAYING")
                 self._handle_failure()
+                self._stop_pipeline()
                 return
 
-        self.get_logger().info(f"streaming to {self.receiver_ip}:{self.port}")
+            self.get_logger().info(
+                "PLAYING requested; waiting for the first encoded buffer "
+                f"(timeout {self.first_buffer_timeout:.1f}s)"
+            )
+            self._startup_event.wait(timeout=self.first_buffer_timeout)
+
+            if not self._first_buffer_seen:
+                self.get_logger().error(
+                    "camera produced no encoded buffers during startup"
+                )
+                self._handle_failure()
+                self._stop_pipeline()
+                return
+
+        self.get_logger().info(
+            f"first encoded buffer received; streaming to "
+            f"{self.receiver_ip}:{self.port}"
+        )
         self._started_at = time.monotonic()
         self._set_status('streaming')
-        self.thread = threading.Thread(target=self.loop.run, daemon=True)
-        self.thread.start()
+
+    def _on_first_encoded_buffer(self, pad, info):
+        """Confirm real data flow, then remove this one-shot pad probe."""
+        self._first_buffer_seen = True
+        self._startup_event.set()
+        return Gst.PadProbeReturn.REMOVE
 
     def restart(self, **kwargs):
         for key, value in kwargs.items():
@@ -251,13 +293,17 @@ class CameraSenderNode(Node):
     def _on_message(self, bus, message):
         if message.type == Gst.MessageType.EOS:
             self.get_logger().info("end of stream")
-            self.loop.quit()
+            self._startup_event.set()
+            if self.loop:
+                self.loop.quit()
             self._handle_failure()
         elif message.type == Gst.MessageType.ERROR:
             err, debug = message.parse_error()
             self.get_logger().error(f"error: {err}")
             self.get_logger().error(f"debug: {debug}")
-            self.loop.quit()
+            self._startup_event.set()
+            if self.loop:
+                self.loop.quit()
             self._handle_failure()
 
     # ─────────────── Auto-reconnect ───────────────

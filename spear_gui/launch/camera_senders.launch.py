@@ -17,6 +17,13 @@ CAMERAS = [
     {"camera_sn": 58896881,  "source": "zedsrc",     "port": 5007, "exposure": 10000, "gain": 30000},
 ]
 
+# Both ZED X One and ZED X Mini support HD1200 at 30 FPS. Pinning the mode is
+# important because ports 4/5 and 6/7 share capture-card groups, and plugin
+# defaults can vary between ZED SDK releases.
+CAMERA_RESOLUTION = 2  # HD1200 (1920x1200)
+CAMERA_FPS = 30
+STREAM_TYPE = 0       # left RGB image from stereo cameras
+
 
 def generate_launch_description():
 
@@ -27,12 +34,10 @@ def generate_launch_description():
     )
     receiver_ip = LaunchConfiguration('receiver_ip')
 
-    # Stagger process *launch* on top of the in-process open lock
-    # (camera_sender_node's _StaggeredOpen): that lock only kicks in once a
-    # process is already up and reaches its open call, so starting all 8
-    # at once still means 8 processes racing to grab it in the same
-    # instant. A couple seconds between launches spreads that out so the
-    # common case doesn't even hit the contention the lock has to resolve.
+    # Processes start independently for crash isolation. The shared startup
+    # gate in camera_sender_node is held until the preceding camera emits its
+    # first encoded buffer, so this small launch spacing is not relied upon for
+    # correctness.
     camera_nodes = [
         TimerAction(
             period=i * 2.0,
@@ -48,8 +53,13 @@ def generate_launch_description():
                         "receiver_ip": receiver_ip,
                         "exposure": cam["exposure"],
                         "gain": cam["gain"],
+                        "camera_resolution": CAMERA_RESOLUTION,
+                        "camera_fps": CAMERA_FPS,
+                        "stream_type": STREAM_TYPE,
                     }],
                     output="screen",
+                    respawn=True,
+                    respawn_delay=5.0,
                 )
             ],
         )
