@@ -13,6 +13,16 @@ Design goals (per requirements):
     affect the other cameras.
   - Failure detection per pipeline is via the GStreamer bus (ERROR/EOS
     messages), which is what a driver-level GMSL disconnect surfaces as.
+  - IMPORTANT: when a camera dies at runtime (disconnect), the node marks
+    it dead but does NOT tear its pipeline down. Calling set_state(NULL) on
+    a disconnected ZED/GMSL device crashes inside NVIDIA/Stereolabs native
+    code (sl::Camera::close -> libnvargus), and a native segfault cannot be
+    caught from Python, so it would take the whole node (all 8 cameras)
+    down. The dead pipeline is intentionally left in place (leaked). This is
+    a deliberate trade: a leaked idle pipeline in exchange for the node
+    surviving a mid-stream unplug. Full recovery of that camera requires a
+    process restart, which is acceptable because GMSL cannot be hot-
+    replugged in this deployment anyway.
   - GMSL cameras cannot be hot-replugged in this deployment, so once a
     camera is marked dead, the node makes no further attempt to recover
     it (no retry loop). It stays down until the process/host is restarted.
@@ -101,6 +111,10 @@ class CameraStream:
         self.lock = threading.Lock()
         self.alive = False
         self.started_at = 0.0
+        # Set True when the camera dies at runtime (bus ERROR/EOS = device
+        # disconnected). Once set, we must NEVER call set_state(NULL) on this
+        # pipeline: the ZED close() path segfaults on a vanished device.
+        self.failed_at_runtime = False
 
     # ---- lifecycle ------------------------------------------------------
 
@@ -156,13 +170,53 @@ class CameraStream:
         return True
 
     def stop(self, reason: str = "shutdown"):
-        """Idempotent teardown. Safe to call multiple times / from callbacks."""
+        """
+        Clean teardown for a STILL-HEALTHY pipeline (e.g. node shutdown of a
+        camera whose device is still physically present). This calls
+        set_state(NULL), which runs the ZED close() path in native code.
+        That path is ONLY safe when the device still exists.
+
+        NEVER call this on a camera that has died at runtime (unplugged):
+        for that use mark_failed(), which deliberately skips teardown. As a
+        safety net this method also refuses to tear down a pipeline flagged
+        failed_at_runtime, so a stray shutdown call can't trigger the crash.
+        """
         with self.lock:
+            if self.failed_at_runtime:
+                # Device is gone. Touching the pipeline (set_state NULL ->
+                # sl::Camera::close) segfaults in native code. Leave it be.
+                self.alive = False
+                return
             was_alive = self.alive
             self.alive = False
         if was_alive:
             self.node.get_logger().warn(f"[cam {self.camera_sn}] stopping pipeline ({reason})")
         self._teardown_locked()
+
+    def mark_failed(self, reason: str):
+        """
+        Runtime-failure handler: the device died mid-stream (bus ERROR/EOS).
+
+        Marks the camera dead but DELIBERATELY does not tear the pipeline
+        down. set_state(NULL) on a disconnected ZED/GMSL device crashes
+        inside libnvargus/libsl_zed (sl::Camera::close), and a native
+        segfault cannot be caught from Python, so it would take the whole
+        node — and every other camera — down with it.
+
+        The pipeline is intentionally left in place (leaked). It will never
+        stream again and is only recovered by restarting the process, which
+        matches the GMSL no-hot-replug constraint. This is the trade that
+        keeps one camera's disconnect from killing the node.
+        """
+        with self.lock:
+            already = self.failed_at_runtime
+            self.alive = False
+            self.failed_at_runtime = True
+        if not already:
+            self.node.get_logger().warn(
+                f"[cam {self.camera_sn}] marking dead WITHOUT teardown ({reason}); "
+                f"pipeline intentionally left in place to avoid native close() crash"
+            )
 
     def _teardown_locked(self):
         if self.pipeline is not None:
@@ -185,16 +239,23 @@ class CameraStream:
     def _on_bus_message(self, bus, message):
         t = message.type
         if t == Gst.MessageType.ERROR:
-            err, debug = message.parse_error()
-            self.node.get_logger().error(
-                f"[cam {self.camera_sn}] GStreamer ERROR: {err} ({debug})"
-            )
-            self.stop(reason="bus error")
+            with self.lock:
+                already = self.failed_at_runtime
+            if not already:
+                err, debug = message.parse_error()
+                self.node.get_logger().error(
+                    f"[cam {self.camera_sn}] GStreamer ERROR: {err} ({debug})"
+                )
+            # Runtime failure: mark dead but DO NOT tear down (see mark_failed).
+            self.mark_failed(reason="bus error")
         elif t == Gst.MessageType.EOS:
-            self.node.get_logger().error(
-                f"[cam {self.camera_sn}] GStreamer EOS received unexpectedly"
-            )
-            self.stop(reason="unexpected EOS")
+            with self.lock:
+                already = self.failed_at_runtime
+            if not already:
+                self.node.get_logger().error(
+                    f"[cam {self.camera_sn}] GStreamer EOS received unexpectedly"
+                )
+            self.mark_failed(reason="unexpected EOS")
         elif t == Gst.MessageType.WARNING:
             warn, debug = message.parse_warning()
             self.node.get_logger().warn(
@@ -265,6 +326,9 @@ class MultiCameraStreamerNode(Node):
 
     def destroy_node(self):
         self.get_logger().info("Shutting down, stopping all pipelines...")
+        # stop() tears down only still-healthy pipelines; cameras that failed
+        # at runtime are skipped internally so we never hit the ZED close()
+        # crash on an already-disconnected device.
         for stream in self.streams.values():
             try:
                 stream.stop(reason="node shutdown")
