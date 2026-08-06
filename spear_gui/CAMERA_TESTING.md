@@ -1,8 +1,16 @@
 # Eight-camera Jetson test
 
-This branch runs each camera in its own ROS process. Camera startup is
-serialized until a real encoded RTP buffer is observed, and a crashed sender
-process is respawned by ROS launch.
+This branch runs four isolated processes with two cameras in each process.
+Camera startup is serialized until a real encoded RTP buffer is observed, and
+a crashed pair is respawned by ROS launch.
+
+The grouped topology is intentional. On the rover's L4T R36.4.7 image, the
+eighth separate process failed in `nvv4l2h265enc` while creating its NVENC
+session even though more than 50 GiB of normal RAM was available. All eight
+encoders work in one process, showing that aggregate encoder count is not the
+failure boundary. Four groups avoid eight copies of process-local ZED,
+GStreamer, CUDA, VIC, and NVENC context state, while a native crash can take
+down at most two cameras instead of all eight.
 
 ## Before every connection-layout test
 
@@ -37,7 +45,7 @@ PLAYING requested; waiting for the first encoded buffer
 first encoded buffer received; streaming to <receiver>:<port>
 ```
 
-Status for all workers is multiplexed onto `/status` and includes the serial
+Status for all cameras is multiplexed onto `/status` and includes the serial
 number and UDP port:
 
 ```bash
@@ -48,10 +56,20 @@ A healthy test must show `streaming` for eight unique serial numbers and ports
 5000 through 5007. `opening` means that worker is waiting for the startup gate
 or its first frame. `retrying` means the camera or encoding pipeline failed.
 
+There should be four group processes, not eight sender processes:
+
+```bash
+pgrep -af camera_group_sender_node
+```
+
+If a native driver crash kills one group, only its two ports disappear and ROS
+launch restarts that group after 10 seconds. A normal GStreamer ERROR retries
+only the affected camera inside its group.
+
 ## Identify the failing boundary
 
-If only seven streams appear, reverse the order of `CAMERAS` in
-`launch/camera_senders.launch.py` for one diagnostic run:
+If only seven streams appear, temporarily swap the failing camera with the
+other entry in its pair in `spear_gui/camera_groups.py` for one diagnostic run:
 
 - A different missing serial indicates startup or encoder resource pressure.
 - The same missing serial indicates a camera, cable, configuration, or serial

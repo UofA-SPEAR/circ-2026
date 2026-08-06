@@ -23,6 +23,7 @@ class CameraPipelineTest(unittest.TestCase):
 
         self.assertIn('camera-resolution=2', pipeline)
         self.assertIn('camera-fps=30', pipeline)
+        self.assertIn('queue max-size-buffers=1 leaky=downstream', pipeline)
         self.assertIn('rtph265pay name=pay', pipeline)
         self.assertIn('udpsink host=192.168.10.11 port=5000', pipeline)
 

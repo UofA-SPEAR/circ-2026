@@ -50,7 +50,10 @@ def build_pipeline(
 
     return (
         f"{source} name=src {src_props}"
-        "! queue max-size-buffers=2 leaky=downstream "
+        # One queued frame is enough for a real-time UDP stream. Keeping a
+        # second full HD1200 NVMM buffer per pipeline wastes scarce native
+        # multimedia memory when all eight encoders are active.
+        "! queue max-size-buffers=1 leaky=downstream "
         "! videoconvert "
         "! video/x-raw,format=BGRx "
         "! nvvidconv "

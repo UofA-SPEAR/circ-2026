@@ -107,8 +107,8 @@ class _StaggeredOpen:
 
 
 class CameraSenderNode(Node):
-    def __init__(self):
-        super().__init__('camera_sender_node')
+    def __init__(self, node_name='camera_sender_node', **node_kwargs):
+        super().__init__(node_name, **node_kwargs)
         Gst.init(None)
 
         self.declare_parameter('camera_sn', 302801647)
