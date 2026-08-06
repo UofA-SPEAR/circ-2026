@@ -37,6 +37,7 @@ setup(
             'camera_group_sender_node = spear_gui.camera_group_sender_node:main',
             'rover_camera_manager = spear_gui.rover_camera_manager:main',
             'camera_manager = spear_gui.camera_manager:main',
+            'camera_streamer = spear_gui.camera_streamer:main',
             'current_motor_vals_gui = spear_gui.current_motor_vals_gui:main',
         ],
     },
