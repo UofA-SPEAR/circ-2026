@@ -1,9 +1,20 @@
-from ast import For
+from enum import Enum, auto
+
 import rclpy
 from rclpy.node import Node
+from rclpy.time import Time
 from sensor_msgs.msg import Joy
-from geometry_msgs.msg import TwistStamped
+from geometry_msgs.msg import TwistStamped, TransformStamped
 from control_msgs.msg import JointJog
+from tf2_ros import Buffer, TransformListener, StaticTransformBroadcaster
+from tf2_ros import LookupException, ConnectivityException, ExtrapolationException
+
+
+class ControlMode(Enum):
+    JOINT = auto()           # per-joint jog (JointJog)
+    TWIST_EE = auto()        # Cartesian twist, frame = live Link_6
+    TWIST_SNAPSHOT = auto()  # Cartesian twist, frame = frozen snapshot
+
 
 class gamepad_to_servo(Node):
     def __init__(self):
@@ -12,8 +23,16 @@ class gamepad_to_servo(Node):
         self.twist_pub = self.create_publisher(TwistStamped, '/servo_node/delta_twist_cmds', 10)
         self.joint_pub = self.create_publisher(JointJog, '/servo_node/delta_joint_cmds', 10)
         # self.joint_pub = self.create_publisher(TwistStamped, '/pad_chatter', 10)
-        self.joint_mode = True
+        self.mode = ControlMode.JOINT
         self.last_button_press = None
+
+        # Snapshot reference frame: freeze Link_6's pose into a fixed TF frame and
+        # drive Cartesian commands relative to it until snapshot mode is toggled off.
+        self.tf_buffer = Buffer()
+        self.tf_listener = TransformListener(self.tf_buffer, self)  # fills buffer while node is spun
+        self.static_broadcaster = StaticTransformBroadcaster(self)  # /tf_static, TRANSIENT_LOCAL
+        self.snapshot_frame = 'arm_snapshot'
+        self.last_snapshot_button = None
 
         # Sensitivity cycling
         self.sens_levels = [0.0125, 0.05, 0.10, 0.15, 0.20, 0.25]
@@ -23,11 +42,26 @@ class gamepad_to_servo(Node):
         self.last_dpad_vertical = 0.0  # edge-detect state for up/down
 
     def joy_cb(self, msg):
-        # Toggle mode with a button press, e.g. Y button (index 3 on Xbox)
+        # Toggle joint vs. Cartesian mode with the Y button (index 3 on Xbox)
         if msg.buttons[3] and not self.last_button_press:
-            self.joint_mode = not self.joint_mode
-            self.get_logger().info(f'Joint mode = {self.joint_mode}')
+            if self.mode == ControlMode.JOINT:
+                self.mode = ControlMode.TWIST_EE
+            else:
+                self.mode = ControlMode.JOINT
+            self.get_logger().info(f'Mode = {self.mode.name}')
         self.last_button_press = msg.buttons[3]
+
+        # Toggle the snapshot reference frame with the X button (index 2 on Xbox)
+        if msg.buttons[2] and not self.last_snapshot_button:
+            if self.mode == ControlMode.TWIST_EE:
+                if self.capture_snapshot():
+                    self.mode = ControlMode.TWIST_SNAPSHOT
+            elif self.mode == ControlMode.TWIST_SNAPSHOT:
+                self.mode = ControlMode.TWIST_EE
+                self.get_logger().info('Snapshot frame off; using live Link_6')
+            else:
+                self.get_logger().info('Snapshot frame only applies in Cartesian mode')
+        self.last_snapshot_button = msg.buttons[2]
 
         # Cycle sensitivity with A button (index 0)
         if msg.buttons[0] and not self.last_sens_button_press:
@@ -48,10 +82,33 @@ class gamepad_to_servo(Node):
             self.get_logger().info(f'Sensitivity = {self.sens}')
         self.last_dpad_vertical = dpad_vertical
 
-        if self.joint_mode:
+        if self.mode == ControlMode.JOINT:
             self.publish_joint_cmds(msg)
         else:
             self.publish_twist_cmds(msg)
+
+    def capture_snapshot(self):
+        """Freeze Link_6's current pose into the fixed `snapshot_frame` TF frame.
+
+        lookup_transform(base_link, Link_6) gives Link_6's pose expressed in
+        base_link; re-broadcasting it as a static base_link -> arm_snapshot frame
+        makes arm_snapshot coincident with Link_6 now but fixed thereafter.
+        Re-broadcasting the same child_frame_id replaces the previous snapshot.
+        """
+        try:
+            tf = self.tf_buffer.lookup_transform('base_link', 'Link_6', Time())
+        except (LookupException, ConnectivityException, ExtrapolationException) as e:
+            self.get_logger().warn(f'Snapshot capture failed, TF unavailable: {e}')
+            return False
+
+        snap = TransformStamped()
+        snap.header.stamp = self.get_clock().now().to_msg()
+        snap.header.frame_id = 'base_link'
+        snap.child_frame_id = self.snapshot_frame
+        snap.transform = tf.transform  # translation + rotation copied verbatim
+        self.static_broadcaster.sendTransform(snap)
+        self.get_logger().info('Captured snapshot frame from Link_6')
+        return True
 
 # We use this to move each joint individually
 
@@ -78,7 +135,9 @@ class gamepad_to_servo(Node):
     def publish_twist_cmds(self, msg):
         twist = TwistStamped()
         twist.header.stamp = self.get_clock().now().to_msg()
-        twist.header.frame_id = "Link_6"
+        twist.header.frame_id = (
+            self.snapshot_frame if self.mode == ControlMode.TWIST_SNAPSHOT else "Link_6"
+        )
 
         # Using the analog sticks for Cartesian control: left stick for linear, right stick for angular
         twist.twist.linear.x = msg.axes[1]*self.sens  # forward-backward
