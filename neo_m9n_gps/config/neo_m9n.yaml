@@ -1,0 +1,23 @@
+/**:
+  ros__parameters:
+    # "auto" safely selects a single USB GNSS device. Set the exact path for
+    # a Jetson GPIO UART, for example /dev/ttyTHS0 after verifying the carrier.
+    port: auto
+    baud: 38400
+    frame_id: gps_link
+    velocity_frame_id: map
+    publish_raw: false
+    poll_period_sec: 0.02
+    reconnect_interval_sec: 2.0
+    stale_timeout_sec: 3.0
+    diagnostic_period_sec: 1.0
+    # User-equivalent range error used with DOP to estimate NavSatFix covariance.
+    uere_m: 3.0
+    minimum_sigma_m: 1.0
+    # sensor_msgs/NavSatStatus bits: GPS=1, GLONASS=2, BeiDou=4, Galileo=8.
+    service_mask: 15
+    read_chunk_size: 4096
+    auto_port_patterns:
+      - /dev/serial/by-id/*
+      - /dev/ttyACM*
+      - /dev/ttyUSB*
