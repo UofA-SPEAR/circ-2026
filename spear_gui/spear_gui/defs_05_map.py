@@ -943,7 +943,7 @@ map_window = WindowDef(
     button_defs=[
         ButtonDef(key=Qt.Key_E, action='increment', continuous_update=True, event_out=get_event('map_direction_angle'), event_delta=45),
         ButtonDef(key=Qt.Key_Q, action='increment', continuous_update=True, event_out=get_event('map_direction_angle'), event_delta=-45),
-        ButtonDef(poly_def=RectDef(p1=P(0, 0), p2=P(1, 1), fill_color=QColor(255, 0, 0, 100)), key=Qt.Key_O, action='set',
+        ButtonDef(poly_def=RectDef(p1=P(0, 0), p2=P(1, 1), fill_color=QColor(255, 0, 0, 100)), action='set',
             event_out=get_event('targeted_marker'),
             event_delta=None,
             on_fire=_deselect_targeted_marker, invisible=True),

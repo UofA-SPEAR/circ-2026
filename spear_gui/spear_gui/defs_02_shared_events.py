@@ -71,7 +71,7 @@ register_event(EventDef(name='content_phase_task', value='open'))
 # Layout mode
 register_event(EventDef(name='layout_selected_window',  value=None))
 register_event(EventDef(name='window_disabled_map',     value=False))
-register_event(EventDef(name='window_disabled_logger',  value=False))
+register_event(EventDef(name='window_disabled_logger',  value=True))
 register_event(EventDef(name='window_disabled_info',    value=False))
 register_event(EventDef(name='window_disabled_task',   value=False))
 register_event(EventDef(name='layout_overlap_detected', value=False))

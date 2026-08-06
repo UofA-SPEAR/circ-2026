@@ -7,15 +7,16 @@ from rclpy.node import Node
 from std_msgs.msg import Float64
 from PySide6.QtWidgets import QApplication, QWidget
 from PySide6.QtCore import Qt, QTimer
-from PySide6.QtGui import QPainter, QFontDatabase, QSurfaceFormat
+from PySide6.QtGui import QPainter, QFontDatabase, QSurfaceFormat, QPixmap
 from PySide6.QtOpenGLWidgets import QOpenGLWidget
 from dataclasses import dataclass, field
 
 import time
-from typing import Dict, Any
+from typing import Dict, Any, Callable, List, Optional
+from rclpy.qos import QoSProfile, ReliabilityPolicy, HistoryPolicy
 
 from spear_gui.overlay_system import (
-    expand_defs, _gradients, _pending_pulse_resets, set_true_screen_size,
+    expand_defs, _gradients, _pending_pulse_resets, set_true_screen_size, reset_window_screen_offset,
     AnimatedPolygon, AnimatedText, AnimatedGraph, AnimatedPie, AnimatedWindow, DataChannel,
     SYS_MOUSE_ABS_X, SYS_MOUSE_ABS_Y,
 )
@@ -47,8 +48,7 @@ class SubscriptionConfig:
     extractor:    Callable[[Any], float]      = field(default=lambda msg: float(msg.data))
     max_samples:  int                         = 100
     unit:         str                         = ''
-    qos:          int                         = 10
-
+    qos:          Any                         = 10
 
 class SubscriptionManager:
     def __init__(self, node, configs: List[SubscriptionConfig]) -> None:
@@ -75,20 +75,25 @@ class SubscriptionManager:
     def context(self) -> Dict[str, Dict[str, Any]]:
         return {name: ch.snapshot() for name, ch in self._channels.items()}
 
-SUBSCRIPTION_CONFIGS = [
-    SubscriptionConfig(topic=f'main/test_value{i}', channel_name=f'test_value{i}', max_samples=50)
-    for i in range(1, 10)
+ENABLE_TEST_SUBSCRIPTIONS = True # <-- IMPORTANT! CHANGE TO FALSE WHEN DONE TESTING! MUST BE FALSE TO READ ROS2 SUBSCRIPTIONS!
+
+TEST_SUBSCRIPTION_CONFIGS = [
+    SubscriptionConfig(topic=f'main/test_value{i}', channel_name=f'test_value{i}', max_samples=50) for i in range(1, 10)
 ]
+
+ROS_SUBSCRIPTION_CONFIGS = [
+    SubscriptionConfig(topic='wheels/amps_wheel_1', channel_name='amps_wheel_1', msg_type=Float64, extractor=lambda msg: float(msg.data), max_samples=100, unit='A'),
+]
+
+SUBSCRIPTION_CONFIGS = ((TEST_SUBSCRIPTION_CONFIGS if ENABLE_TEST_SUBSCRIPTIONS else []) + ROS_SUBSCRIPTION_CONFIGS)
 
 
 class MainNode(Node):
     def __init__(self):
         super().__init__('main_overlay_node')
-        self.test_publishers = [
-            self.create_publisher(Float64, f'main/test_value{i+1}', 10)
-            for i in range(9)
-        ]
-        self.create_timer(0.5, self._publish_demo)
+        if ENABLE_TEST_SUBSCRIPTIONS:
+            self.test_publishers = [self.create_publisher(Float64, f'main/test_value{i+1}', 10) for i in range(9)]
+            self.create_timer(0.5, self._publish_demo)
         self.sub_manager = SubscriptionManager(self, SUBSCRIPTION_CONFIGS)
 
     def _publish_demo(self):
@@ -174,7 +179,7 @@ class MainOverlayWidget(QOpenGLWidget):
         if phase_def is not None and getattr(phase_def, 'update_retrigger', False):
             return False
         for btn in win._buttons:
-            if btn.defn.phase_override is not None:          # <-- added
+            if btn.defn.phase_override is not None:
                 return False
             if btn._cur_phase not in ('', 'open', 'close', 'unhover') or btn._hovered or btn._pressed or btn._held:
                 return False
@@ -197,7 +202,7 @@ class MainOverlayWidget(QOpenGLWidget):
             if tb.defn.poly_def.gradient is not None:
                 return False
         for p in win._polygons:
-            if p.defn.phase_override is not None:             # <-- added
+            if p.defn.phase_override is not None:
                 return False
             if not p.phase_done():
                 return False
@@ -206,7 +211,7 @@ class MainOverlayWidget(QOpenGLWidget):
             if p.defn.gradient is not None:
                 return False
         for t in win._texts:
-            if t.defn.phase_override is not None:             # <-- added
+            if t.defn.phase_override is not None:
                 return False
             if not t.phase_done():
                 return False
@@ -222,8 +227,6 @@ class MainOverlayWidget(QOpenGLWidget):
         return True
 
     def _draw_with_cache(self, painter, win, w, h, ctx):
-        from PySide6.QtGui import QPixmap
-        from spear_gui.overlay_system import reset_window_screen_offset  # or import at top
         wid = id(win.defn)
         if self._is_fully_static(win):
             if wid not in self._win_cache:
@@ -340,7 +343,7 @@ def main():
     node = MainNode()
 
     fmt = QSurfaceFormat()
-    fmt.setSamples(4)   # try 8 if your GPU/driver supports it and you want smoother edges
+    fmt.setSamples(4)
     QSurfaceFormat.setDefaultFormat(fmt)
 
     app = QApplication(sys.argv)
@@ -360,7 +363,6 @@ def main():
                     families = QFontDatabase.applicationFontFamilies(fid)
                     print(f'[load_fonts] loaded: {fname} -> {families}')
 
-    # resolve relative to this file's own location, not the process cwd
     _this_dir = os.path.dirname(os.path.abspath(__file__))
     print(f'[load_fonts] __file__ = {__file__}')
     print(f'[load_fonts] resolved dir = {_this_dir}')

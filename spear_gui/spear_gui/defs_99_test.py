@@ -234,7 +234,7 @@ FULLSCREEN_PX2 = P(-70, 0)
 register_event(EventDef(name='fullscreen_selection', value=None))
 
 register_event(EventDef(name='layout_win_map_base_p1',  value=P(0.0, 0.0)))
-register_event(EventDef(name='layout_win_map_base_p2',  value=P((740-70)/1920, 0.6)))
+register_event(EventDef(name='layout_win_map_base_p2',  value=P(1040/1920, 0.6)))
 register_event(EventDef(name='layout_win_map_base_px1', value=P(0, 0)))
 register_event(EventDef(name='layout_win_map_base_px2', value=P(0, 0)))
 
@@ -244,11 +244,11 @@ register_event(EventDef(name='layout_win_logger_base_px1', value=P(0, 0)))
 register_event(EventDef(name='layout_win_logger_base_px2', value=P(0, 0)))
 
 register_event(EventDef(name='layout_win_info_base_p1',  value=P(0.0, 0.6)))
-register_event(EventDef(name='layout_win_info_base_p2',  value=P((740-70)/1920, 1.0)))
+register_event(EventDef(name='layout_win_info_base_p2',  value=P(1040/1920, 1.0)))
 register_event(EventDef(name='layout_win_info_base_px1', value=P(0, 0)))
 register_event(EventDef(name='layout_win_info_base_px2', value=P(0, 0)))
 
-register_event(EventDef(name='layout_win_task_base_p1',  value=P(1-(740-70)/1920, 0.0)))
+register_event(EventDef(name='layout_win_task_base_p1',  value=P(1-(740)/1920, 0.0)))
 register_event(EventDef(name='layout_win_task_base_p2',  value=P(1.0, 1.0)))
 register_event(EventDef(name='layout_win_task_base_px1', value=P(0, 0)))
 register_event(EventDef(name='layout_win_task_base_px2', value=P(0, 0)))
@@ -308,7 +308,7 @@ def _key_1_4_action(name: str):
 
 # MAP WINDOW
 map_window = WindowDef(
-    p1=P(0.0, 0.0), p2=P((740-70)/1920, 0.6), px1=P(0, 0), px2=P(0, 0),
+    p1=P(0.0, 0.0), p2=P((1040-70)/1920, 0.6), px1=P(0, 0), px2=P(0, 0),
     hidden_event=_make_hidden_event('map'),
     export_p1=get_event('map_window_p1'),
     export_p2=get_event('map_window_p2'),
@@ -362,7 +362,7 @@ logger_window = WindowDef(
 
 # INFO WINDOW
 info_window = WindowDef(
-    p1=P(0.0, 0.6), p2=P((740-70)/1920, 1.0), px1=P(0, 0), px2=P(0, 0),
+    p1=P(0.0, 0.6), p2=P((1040-70)/1920, 1.0), px1=P(0, 0), px2=P(0, 0),
     hidden_event=_make_hidden_event('info'),
     export_p1=get_event('info_window_p1'),
     export_p2=get_event('info_window_p2'),
