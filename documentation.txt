@@ -27,7 +27,8 @@ sudo apt install gstreamer1.0-plugins-good gstreamer1.0-plugins-bad gstreamer1.0
 
 
 #restarting zed daemon for when camera ports are claimed
-sudo systemctl restart zed_x_daemon.service
+sudo systemctl restart nvargus-daemon
+sudo systemctl restart zed_x_daemon
 
 
 
