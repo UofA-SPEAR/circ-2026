@@ -3,7 +3,7 @@
 ROS 2 Humble serial driver for the u-blox NEO-M9N-00B GNSS receiver. It works
 with the receiver's factory NMEA output and publishes standard ROS messages.
 
-## Published topics
+## ROS interface
 
 All relative topics are placed below the launch namespace, which defaults to
 `/gps`.
@@ -16,6 +16,10 @@ All relative topics are placed below the launch namespace, which defaults to
 | `satellites` | `std_msgs/msg/UInt32` | Satellites used/reported by GGA |
 | `raw` | `std_msgs/msg/String` | Raw NMEA lines when `publish_raw` is true |
 | `/diagnostics` | `diagnostic_msgs/msg/DiagnosticArray` | Connection, fix, stale-data and parser health |
+
+The node has no subscribed ROS topics, services, or actions. See the complete
+[topic and interface reference](docs/ROS_INTERFACES.md) for publication
+conditions, units, frames, QoS and no-fix behaviour.
 
 GGA reports altitude above mean sea level. `NavSatFix` requires altitude above
 the WGS84 ellipsoid, so the driver adds the GGA geoid separation when present.
