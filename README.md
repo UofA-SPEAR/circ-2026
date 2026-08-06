@@ -8,15 +8,22 @@ The competition entry points are:
 ```bash
 # Jetson AGX Orin
 ros2 launch spear_bringup rover.launch.py \
+  drive_profile:=crawl \
   receiver_ip:=192.168.8.224 \
   waypoint_file:=/home/spearua/circ_waypoints.csv
 
 # Base station
-ros2 launch spear_bringup base_station.launch.py gamepad_device_id:=0
+ros2 launch spear_bringup base_station.launch.py \
+  gamepad_device_id:=0 \
+  drive_gamepad_device_id:=1 \
+  drive_profile:=crawl
 ```
 
-The arm controller connects to the base station. Its `/joy` stream crosses the
-rover radio; the fail-safe adapter and timeout remain rover-side.
+Both controllers connect to the base station. The arm publishes `/joy`; the
+drive controller publishes only `/drive/joy`. Their fail-safe adapters and
+command timeouts remain rover-side. The rover launch records non-camera
+telemetry under `~/.ros/spear_bags` and stops recording at its configured time
+or storage limit.
 
 Build, deployment, task setup, fail-safe checks, and field validation are
 documented in [the competition runbook](docs/competition-runbook.md).

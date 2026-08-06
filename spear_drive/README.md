@@ -203,14 +203,21 @@ diagnostics.
 
 ## Drive joystick
 
-Start the drive gamepad separately from the arm gamepad:
+The competition base-station launch starts both isolated gamepads:
+
+```bash
+ros2 launch spear_bringup base_station.launch.py \
+  gamepad_device_id:=0 drive_gamepad_device_id:=1 drive_profile:=crawl
+```
+
+For an isolated bench test, the drive-only launch remains available:
 
 ```bash
 ros2 launch spear_drive drive_teleop.launch.py device_id:=1 profile:=crawl
 ```
 
-The existing base-station launch uses SDL device `0` for the arm; this launch
-defaults drive to device `1` and publishes it only as `/drive/joy`.
+The base-station launch uses SDL device `0` for the arm and device `1` for
+drive by default. Drive input publishes only as `/drive/joy`.
 
 The drive gamepad is the only publisher allowed on `/drive/joy`. Verify axis and
 button numbers before enabling hardware:

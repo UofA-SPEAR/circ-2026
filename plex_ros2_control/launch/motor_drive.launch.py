@@ -13,6 +13,7 @@
 # limitations under the License.
 
 from launch import LaunchDescription
+from launch.conditions import IfCondition
 from launch.substitutions import Command, FindExecutable, PathJoinSubstitution, LaunchConfiguration
 from launch.actions import DeclareLaunchArgument
 
@@ -39,9 +40,21 @@ def generate_launch_description():
             description='Append rover slaves 6-15 to the shared EtherCAT master.',
         )
     )
+    declared_arguments.append(
+        DeclareLaunchArgument(
+            'use_arm_controllers',
+            default_value='true',
+            choices=['true', 'false'],
+            description=(
+                'Load arm controllers on the shared EtherCAT master. The master '
+                'can remain available to the drivetrain when this is false.'
+            ),
+        )
+    )
 
     description_file = LaunchConfiguration('description_file')
     use_drive = LaunchConfiguration('use_drive')
+    use_arm_controllers = LaunchConfiguration('use_arm_controllers')
 
     # Get URDF via xacro
     robot_description_content = Command(
@@ -92,30 +105,35 @@ def generate_launch_description():
         package="controller_manager",
         executable="spawner",
         arguments=["trajectory_controller", "-c", "/controller_manager", "--inactive"],
+        condition=IfCondition(use_arm_controllers),
     )
 
     position_controller_spawner = Node(
         package="controller_manager",
         executable="spawner",
         arguments=["position_controller", "-c", "/controller_manager"],
+        condition=IfCondition(use_arm_controllers),
     )
 
     velocity_controller_spawner = Node(
         package="controller_manager",
         executable="spawner",
         arguments=["velocity_controller", "-c", "/controller_manager"],
+        condition=IfCondition(use_arm_controllers),
     )
 
     effort_controller_spawner = Node(
         package="controller_manager",
         executable="spawner",
         arguments=["effort_controller", "-c", "/controller_manager"],
+        condition=IfCondition(use_arm_controllers),
     )
 
     control_word_controller_spawner = Node(
         package="controller_manager",
         executable="spawner",
         arguments=["control_word_controller", "-c", "/controller_manager"],
+        condition=IfCondition(use_arm_controllers),
     )
 
     nodes = [

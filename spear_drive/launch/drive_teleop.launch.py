@@ -46,6 +46,8 @@ def generate_launch_description():
                     }
                 ],
                 output="screen",
+                respawn=True,
+                respawn_delay=2.0,
             ),
             Node(
                 package="spear_drive",
@@ -53,6 +55,8 @@ def generate_launch_description():
                 name="drive_teleop",
                 parameters=[config, profile_config],
                 output="screen",
+                respawn=True,
+                respawn_delay=2.0,
             ),
         ]
     )

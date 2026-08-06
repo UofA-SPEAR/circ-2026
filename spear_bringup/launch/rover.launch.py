@@ -2,12 +2,22 @@
 
 import os
 
-from ament_index_python.packages import get_package_share_directory
+from ament_index_python.packages import (
+    get_package_prefix,
+    get_package_share_directory,
+)
 from launch import LaunchDescription
-from launch.actions import DeclareLaunchArgument, IncludeLaunchDescription
+from launch.actions import (
+    DeclareLaunchArgument,
+    ExecuteProcess,
+    IncludeLaunchDescription,
+)
 from launch.conditions import IfCondition
 from launch.launch_description_sources import PythonLaunchDescriptionSource
-from launch.substitutions import LaunchConfiguration, PythonExpression
+from launch.substitutions import (
+    LaunchConfiguration,
+    PythonExpression,
+)
 from launch_ros.actions import Node
 from launch_ros.parameter_descriptions import ParameterValue
 
@@ -38,6 +48,10 @@ def generate_launch_description():
     receiver_ip = LaunchConfiguration("receiver_ip")
     camera_bitrate = LaunchConfiguration("camera_bitrate")
     use_rviz = LaunchConfiguration("use_rviz")
+    record_bag = LaunchConfiguration("record_bag")
+    bag_output_root = LaunchConfiguration("bag_output_root")
+    bag_max_duration_sec = LaunchConfiguration("bag_max_duration_sec")
+    bag_max_total_size_mb = LaunchConfiguration("bag_max_total_size_mb")
 
     camera_config = os.path.join(
         get_package_share_directory("spear_gui"),
@@ -60,6 +74,24 @@ def generate_launch_description():
         respawn=True,
         respawn_delay=3.0,
     )
+    recorder = ExecuteProcess(
+        cmd=[
+            os.path.join(
+                get_package_prefix("spear_bringup"),
+                "lib",
+                "spear_bringup",
+                "bounded_recorder",
+            ),
+            "--output-root",
+            bag_output_root,
+            "--max-duration-sec",
+            bag_max_duration_sec,
+            "--max-total-size-mb",
+            bag_max_total_size_mb,
+        ],
+        condition=IfCondition(record_bag),
+        output="screen",
+    )
 
     gps = _include(
         "ultimate_gps_ros2",
@@ -70,15 +102,18 @@ def generate_launch_description():
     arm_control = _include(
         "plex_ros2_control",
         "motor_drive.launch.py",
-        use_arm,
-        {"use_drive": use_drive},
+        PythonExpression(
+            ["'", use_arm, "' == 'true' or '", use_drive, "' == 'true'"]
+        ),
+        {
+            "use_drive": use_drive,
+            "use_arm_controllers": use_arm,
+        },
     )
     drive_control = _include(
         "spear_drive",
         "load_drive_controller.launch.py",
-        PythonExpression(
-            ["'", use_arm, "' == 'true' and '", use_drive, "' == 'true'"]
-        ),
+        use_drive,
         {"profile": drive_profile},
     )
     arm_servo = _include(
@@ -104,6 +139,22 @@ def generate_launch_description():
                 choices=["crawl", "wet", "normal"],
             ),
             DeclareLaunchArgument("use_rviz", default_value="false"),
+            DeclareLaunchArgument("record_bag", default_value="true"),
+            DeclareLaunchArgument(
+                "bag_output_root",
+                default_value="~/.ros/spear_bags",
+                description="Directory for bounded competition rosbags",
+            ),
+            DeclareLaunchArgument(
+                "bag_max_duration_sec",
+                default_value="7200",
+                description="Stop recording after this many seconds",
+            ),
+            DeclareLaunchArgument(
+                "bag_max_total_size_mb",
+                default_value="10240",
+                description="Stop recording once this bag reaches this size",
+            ),
             DeclareLaunchArgument(
                 "waypoint_file",
                 default_value="",
@@ -116,6 +167,7 @@ def generate_launch_description():
             ),
             DeclareLaunchArgument("camera_bitrate", default_value="1500000"),
             gps,
+            recorder,
             camera_sender,
             arm_control,
             drive_control,

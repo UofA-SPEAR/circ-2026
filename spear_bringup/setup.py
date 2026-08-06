@@ -27,5 +27,11 @@ setup(
     maintainer_email="software@spearrobotics.ca",
     description="Reproducible CIRC rover and base-station bringup",
     license="Proprietary",
+    entry_points={
+        "console_scripts": [
+            "bounded_recorder = spear_bringup.bounded_recorder:main",
+            "validate_competition_config = spear_bringup.config_validator:main",
+        ],
+    },
     extras_require={"test": ["pytest"]},
 )
