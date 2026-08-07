@@ -1,0 +1,71 @@
+<?xml version="1.0"?>
+<robot xmlns:xacro="http://www.ros.org/wiki/xacro">
+  <xacro:macro name="spear_drive_brushed_slave"
+      params="joint slave_position slave_config">
+    <joint name="${joint}">
+      <command_interface name="current"/>
+      <command_interface name="control_word"/>
+      <state_interface name="status_word"/>
+      <state_interface name="current"/>
+      <state_interface name="encoder_counts_per_second"/>
+      <state_interface name="encoder_counts"/>
+      <state_interface name="duty_cycle"/>
+      <ec_module name="${joint}_ethercat">
+        <plugin>ethercat_generic_plugins/GenericEcSlave</plugin>
+        <param name="alias">0</param>
+        <param name="position">${slave_position}</param>
+        <param name="slave_config">${slave_config}</param>
+      </ec_module>
+    </joint>
+  </xacro:macro>
+
+  <xacro:macro name="spear_drive_steering_slave"
+      params="joint slave_position slave_config">
+    <joint name="${joint}">
+      <!-- The unused interfaces preserve the arm stepper's fixed PDO map. -->
+      <command_interface name="control_word"/>
+      <command_interface name="position"/>
+      <command_interface name="velocity"/>
+      <state_interface name="status_word"/>
+      <state_interface name="position"/>
+      <state_interface name="velocity"/>
+      <ec_module name="${joint}_ethercat">
+        <plugin>ethercat_generic_plugins/GenericEcSlave</plugin>
+        <param name="alias">0</param>
+        <param name="position">${slave_position}</param>
+        <param name="slave_config">${slave_config}</param>
+      </ec_module>
+    </joint>
+  </xacro:macro>
+
+  <!--
+    Call this macro inside the ONE existing master-0 ros2_control system after
+    the arm joints. Running a second EtherCAT master for the drivetrain is not
+    supported. The brushed-DC mapping is verified against the current embedded
+    repository; steering remains provisional until the flashed boards are
+    confirmed to match the arm stepper firmware.
+  -->
+  <xacro:macro name="spear_drive_ethercat_joints"
+      params="drive_slave_config steering_slave_config">
+    <xacro:spear_drive_brushed_slave joint="front_left_drive_joint"
+      slave_position="6" slave_config="${drive_slave_config}"/>
+    <xacro:spear_drive_brushed_slave joint="front_right_drive_joint"
+      slave_position="7" slave_config="${drive_slave_config}"/>
+    <xacro:spear_drive_brushed_slave joint="middle_left_drive_joint"
+      slave_position="8" slave_config="${drive_slave_config}"/>
+    <xacro:spear_drive_brushed_slave joint="middle_right_drive_joint"
+      slave_position="9" slave_config="${drive_slave_config}"/>
+    <xacro:spear_drive_brushed_slave joint="rear_left_drive_joint"
+      slave_position="10" slave_config="${drive_slave_config}"/>
+    <xacro:spear_drive_brushed_slave joint="rear_right_drive_joint"
+      slave_position="11" slave_config="${drive_slave_config}"/>
+    <xacro:spear_drive_steering_slave joint="front_left_steer_joint"
+      slave_position="12" slave_config="${steering_slave_config}"/>
+    <xacro:spear_drive_steering_slave joint="front_right_steer_joint"
+      slave_position="13" slave_config="${steering_slave_config}"/>
+    <xacro:spear_drive_steering_slave joint="rear_left_steer_joint"
+      slave_position="14" slave_config="${steering_slave_config}"/>
+    <xacro:spear_drive_steering_slave joint="rear_right_steer_joint"
+      slave_position="15" slave_config="${steering_slave_config}"/>
+  </xacro:macro>
+</robot>

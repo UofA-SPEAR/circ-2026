@@ -1,0 +1,87 @@
+<?xml version="1.0"?>
+<robot xmlns:xacro="http://www.ros.org/wiki/xacro" name="spear_drive_mock">
+  <link name="base_link"/>
+
+  <xacro:macro name="corner" params="prefix x y">
+    <link name="${prefix}_steer_link"/>
+    <link name="${prefix}_wheel_link"/>
+    <joint name="${prefix}_steer_joint" type="revolute">
+      <parent link="base_link"/>
+      <child link="${prefix}_steer_link"/>
+      <origin xyz="${x} ${y} 0" rpy="0 0 0"/>
+      <axis xyz="0 0 1"/>
+      <limit lower="-0.78" upper="0.78" effort="100" velocity="2"/>
+    </joint>
+    <joint name="${prefix}_drive_joint" type="continuous">
+      <parent link="${prefix}_steer_link"/>
+      <child link="${prefix}_wheel_link"/>
+      <axis xyz="0 1 0"/>
+      <limit effort="10" velocity="20"/>
+    </joint>
+  </xacro:macro>
+
+  <xacro:macro name="middle" params="prefix y">
+    <link name="${prefix}_wheel_link"/>
+    <joint name="${prefix}_drive_joint" type="continuous">
+      <parent link="base_link"/>
+      <child link="${prefix}_wheel_link"/>
+      <origin xyz="0 ${y} 0" rpy="0 0 0"/>
+      <axis xyz="0 1 0"/>
+      <limit effort="10" velocity="20"/>
+    </joint>
+  </xacro:macro>
+
+  <xacro:corner prefix="front_left" x="0.50" y="0.35"/>
+  <xacro:corner prefix="front_right" x="0.50" y="-0.35"/>
+  <xacro:middle prefix="middle_left" y="0.35"/>
+  <xacro:middle prefix="middle_right" y="-0.35"/>
+  <xacro:corner prefix="rear_left" x="-0.50" y="0.35"/>
+  <xacro:corner prefix="rear_right" x="-0.50" y="-0.35"/>
+
+  <ros2_control name="spear_drive_mock_hardware" type="system">
+    <hardware>
+      <plugin>mock_components/GenericSystem</plugin>
+    </hardware>
+
+    <xacro:macro name="mock_drive" params="joint">
+      <joint name="${joint}">
+        <command_interface name="current"/>
+        <command_interface name="control_word"/>
+        <state_interface name="status_word">
+          <param name="initial_value">4.0</param>
+        </state_interface>
+        <state_interface name="current">
+          <param name="initial_value">0.0</param>
+        </state_interface>
+        <state_interface name="encoder_counts_per_second">
+          <param name="initial_value">0.0</param>
+        </state_interface>
+        <state_interface name="encoder_counts">
+          <param name="initial_value">0.0</param>
+        </state_interface>
+        <state_interface name="duty_cycle">
+          <param name="initial_value">0.0</param>
+        </state_interface>
+      </joint>
+    </xacro:macro>
+    <xacro:mock_drive joint="front_left_drive_joint"/>
+    <xacro:mock_drive joint="front_right_drive_joint"/>
+    <xacro:mock_drive joint="middle_left_drive_joint"/>
+    <xacro:mock_drive joint="middle_right_drive_joint"/>
+    <xacro:mock_drive joint="rear_left_drive_joint"/>
+    <xacro:mock_drive joint="rear_right_drive_joint"/>
+
+    <xacro:macro name="mock_steering" params="joint">
+      <joint name="${joint}">
+        <command_interface name="position"/>
+        <state_interface name="position">
+          <param name="initial_value">0.0</param>
+        </state_interface>
+      </joint>
+    </xacro:macro>
+    <xacro:mock_steering joint="front_left_steer_joint"/>
+    <xacro:mock_steering joint="front_right_steer_joint"/>
+    <xacro:mock_steering joint="rear_left_steer_joint"/>
+    <xacro:mock_steering joint="rear_right_steer_joint"/>
+  </ros2_control>
+</robot>
