@@ -29,7 +29,7 @@ def generate_launch_description():
             ),
             DeclareLaunchArgument(
                 "profile",
-                default_value="crawl",
+                default_value="normal",
                 choices=["crawl", "wet", "normal"],
                 description="Drive joystick speed profile",
             ),

@@ -91,6 +91,16 @@ double encoder_counts_per_second_to_motor_velocity(
   double encoder_counts_per_second,
   double encoder_counts_per_motor_revolution);
 
+bool update_encoder_feedback_health(
+  bool values_valid,
+  bool encoder_changed,
+  double last_desired_motor_velocity,
+  bool drive_available,
+  double period_seconds,
+  double stale_timeout,
+  double motion_threshold,
+  double & stale_duration);
+
 DriveSetpoint compute_drive_setpoint(
   const Geometry & geometry,
   const MotionLimits & limits,
@@ -102,6 +112,18 @@ double steering_alignment_scale(
   const std::array<bool, kSteeringWheelCount> & healthy,
   double soft_error,
   double hard_error);
+
+double encoderless_current_command(
+  std::size_t target_index,
+  const std::array<double, kDriveWheelCount> & desired_wheel_angular_speed,
+  const std::array<double, kDriveWheelCount> & drive_direction,
+  const std::array<double, kDriveWheelCount> & controlled_motor_current,
+  const std::array<bool, kDriveWheelCount> & encoder_healthy,
+  const std::array<bool, kDriveWheelCount> & drive_enabled,
+  double previous_motor_current,
+  double previous_desired_wheel_angular_speed,
+  double max_wheel_angular_speed,
+  double open_loop_current_at_max_speed);
 
 BodyTwistEstimate estimate_body_twist(
   const Geometry & geometry,

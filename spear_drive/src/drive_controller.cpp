@@ -94,6 +94,7 @@ SpearDriveController::SpearDriveController()
     "front_left_steer_joint", "front_right_steer_joint",
     "rear_left_steer_joint", "rear_right_steer_joint"};
   last_traction_scale_.fill(1.0);
+  last_encoder_position_.fill(std::numeric_limits<double>::quiet_NaN());
   last_valid_steering_.fill(std::numeric_limits<double>::quiet_NaN());
 }
 
@@ -148,6 +149,9 @@ controller_interface::CallbackReturn SpearDriveController::on_init()
     auto_declare<double>("velocity_ki", 0.0);
     auto_declare<double>("velocity_feedforward", 0.0);
     auto_declare<double>("max_motor_current", 2.0);
+    auto_declare<double>("encoderless_full_speed_current", 0.8);
+    auto_declare<double>("encoder_stale_timeout", 0.75);
+    auto_declare<double>("encoder_motion_threshold", 0.5);
     auto_declare<double>("integral_limit", 1.0);
     auto_declare<double>("yaw_feedback_gain", 0.25);
     auto_declare<double>("slip_ratio_threshold", 0.30);
@@ -162,12 +166,10 @@ controller_interface::CallbackReturn SpearDriveController::on_init()
     auto_declare<std::string>("odom_frame", "odom");
     auto_declare<std::string>("base_frame", "base_link");
 
-    auto_declare<int>("minimum_healthy_drive_wheels", 4);
-    auto_declare<int>("minimum_healthy_wheels_per_side", 2);
+    auto_declare<int>("minimum_available_drive_wheels", 4);
+    auto_declare<int>("minimum_available_wheels_per_side", 2);
     auto_declare<double>("degraded_5wd_scale", 0.65);
     auto_declare<double>("degraded_4wd_scale", 0.35);
-    auto_declare<double>("steering_limp_scale", 0.20);
-    auto_declare<double>("steering_straight_tolerance", 0.15);
   } catch (const std::exception & error) {
     RCLCPP_ERROR(get_node()->get_logger(), "Parameter declaration failed: %s", error.what());
     return controller_interface::CallbackReturn::ERROR;
@@ -268,6 +270,10 @@ bool SpearDriveController::load_parameters()
   velocity_ki_ = node->get_parameter("velocity_ki").as_double();
   velocity_feedforward_ = node->get_parameter("velocity_feedforward").as_double();
   max_motor_current_ = node->get_parameter("max_motor_current").as_double();
+  encoderless_full_speed_current_ =
+    node->get_parameter("encoderless_full_speed_current").as_double();
+  encoder_stale_timeout_ = node->get_parameter("encoder_stale_timeout").as_double();
+  encoder_motion_threshold_ = node->get_parameter("encoder_motion_threshold").as_double();
   integral_limit_ = node->get_parameter("integral_limit").as_double();
   yaw_feedback_gain_ = node->get_parameter("yaw_feedback_gain").as_double();
   slip_ratio_threshold_ = node->get_parameter("slip_ratio_threshold").as_double();
@@ -288,22 +294,19 @@ bool SpearDriveController::load_parameters()
   odom_frame_ = node->get_parameter("odom_frame").as_string();
   base_frame_ = node->get_parameter("base_frame").as_string();
 
-  const int minimum_wheels = node->get_parameter("minimum_healthy_drive_wheels").as_int();
+  const int minimum_wheels = node->get_parameter("minimum_available_drive_wheels").as_int();
   const int minimum_per_side =
-    node->get_parameter("minimum_healthy_wheels_per_side").as_int();
+    node->get_parameter("minimum_available_wheels_per_side").as_int();
   if (minimum_wheels < 1 || minimum_wheels > 6 ||
     minimum_per_side < 1 || minimum_per_side > 3)
   {
     RCLCPP_ERROR(node->get_logger(), "Fault-policy wheel counts are invalid");
     return false;
   }
-  fault_policy_.minimum_healthy_drive_wheels = static_cast<std::size_t>(minimum_wheels);
-  fault_policy_.minimum_healthy_wheels_per_side = static_cast<std::size_t>(minimum_per_side);
+  fault_policy_.minimum_available_drive_wheels = static_cast<std::size_t>(minimum_wheels);
+  fault_policy_.minimum_available_wheels_per_side = static_cast<std::size_t>(minimum_per_side);
   fault_policy_.degraded_5wd_scale = node->get_parameter("degraded_5wd_scale").as_double();
   fault_policy_.degraded_4wd_scale = node->get_parameter("degraded_4wd_scale").as_double();
-  fault_policy_.steering_limp_scale = node->get_parameter("steering_limp_scale").as_double();
-  fault_policy_.steering_straight_tolerance =
-    node->get_parameter("steering_straight_tolerance").as_double();
 
   try {
     validate_geometry(geometry_);
@@ -332,14 +335,17 @@ bool SpearDriveController::load_parameters()
     std::isfinite(yaw_feedback_gain_) && yaw_feedback_gain_ >= 0.0 &&
     std::isfinite(max_motor_current_) && max_motor_current_ > 0.0 &&
     max_motor_current_ <= kConfiguredEmbeddedCurrentLimitAmps &&
+    std::isfinite(encoderless_full_speed_current_) &&
+    encoderless_full_speed_current_ >= 0.0 &&
+    encoderless_full_speed_current_ <= max_motor_current_ &&
+    std::isfinite(encoder_stale_timeout_) && encoder_stale_timeout_ > 0.0 &&
+    std::isfinite(encoder_motion_threshold_) && encoder_motion_threshold_ > 0.0 &&
     std::isfinite(integral_limit_) && integral_limit_ >= 0.0 &&
     slip_ratio_threshold_ >= 0.0 && slip_reference_speed_ > 0.0 &&
     minimum_traction_scale_ >= 0.0 && minimum_traction_scale_ <= 1.0 &&
     publish_rate_ > 0.0 &&
     fault_policy_.degraded_5wd_scale >= 0.0 && fault_policy_.degraded_5wd_scale <= 1.0 &&
-    fault_policy_.degraded_4wd_scale >= 0.0 && fault_policy_.degraded_4wd_scale <= 1.0 &&
-    fault_policy_.steering_limp_scale >= 0.0 && fault_policy_.steering_limp_scale <= 1.0 &&
-    fault_policy_.steering_straight_tolerance >= 0.0;
+    fault_policy_.degraded_4wd_scale >= 0.0 && fault_policy_.degraded_4wd_scale <= 1.0;
   if (!scalars_valid) {
     RCLCPP_ERROR(node->get_logger(), "One or more scalar controller parameters are invalid");
   }
@@ -511,7 +517,16 @@ controller_interface::CallbackReturn SpearDriveController::on_activate(
   stopped.received = get_node()->now();
   command_buffer_.writeFromNonRT(stopped);
   command_is_fresh_.store(false);
+  odometry_feedback_valid_.store(false);
   motion_requested_.store(false);
+  last_encoder_position_.fill(std::numeric_limits<double>::quiet_NaN());
+  encoder_stale_duration_.fill(0.0);
+  last_desired_motor_velocity_.fill(0.0);
+  last_motor_current_command_.fill(0.0);
+  last_desired_wheel_angular_speed_.fill(0.0);
+  drive_available_mask_.store(0U);
+  drive_encoder_health_mask_.store(0U);
+  steering_encoder_health_mask_.store(0U);
   steering_zeroed_ = false;
   if (auto_zero_on_activate_) {
     capture_steering_zero();
@@ -609,18 +624,16 @@ void SpearDriveController::set_drive_enable(bool enabled)
 
 void SpearDriveController::capture_steering_zero()
 {
-  bool valid = true;
   for (std::size_t index = 0; index < kSteeringWheelCount; ++index) {
     const double raw = steering_states_[index] == nullptr ?
       std::numeric_limits<double>::quiet_NaN() : steering_states_[index]->get_value();
-    if (!std::isfinite(raw)) {
-      valid = false;
-      continue;
-    }
-    steering_zero_reference_[index] = raw;
+    // Startup requires the wheels to be physically straight. If feedback is
+    // already unavailable, retain open-loop position control in the embedded
+    // coordinate system instead of preventing the remaining rover from moving.
+    steering_zero_reference_[index] = std::isfinite(raw) ? raw : 0.0;
     last_valid_steering_[index] = 0.0;
   }
-  steering_zeroed_ = valid;
+  steering_zeroed_ = true;
   zero_requested_.store(false);
 }
 
@@ -660,6 +673,7 @@ controller_interface::return_type SpearDriveController::update(
   int enabled_drive_count = 0;
   for (std::size_t index = 0; index < kDriveWheelCount; ++index) {
     const double raw_velocity = drive_encoder_velocity_states_[index]->get_value();
+    const double raw_position = drive_encoder_position_states_[index]->get_value();
     const double status_value = drive_status_word_states_[index]->get_value();
     const double measured_current = drive_current_states_[index]->get_value();
     const bool status_valid = std::isfinite(status_value) && status_value >= 0.0;
@@ -676,7 +690,19 @@ controller_interface::return_type SpearDriveController::update(
     }
     motor_velocity[index] = encoder_counts_per_second_to_motor_velocity(
       raw_velocity, encoder_counts_per_motor_revolution_[index]);
-    health.drive_healthy[index] = std::isfinite(motor_velocity[index]) && drive_enabled;
+    const bool encoder_values_valid =
+      std::isfinite(motor_velocity[index]) && std::isfinite(raw_position);
+    const bool encoder_changed = encoder_values_valid &&
+      (!std::isfinite(last_encoder_position_[index]) ||
+      std::abs(raw_position - last_encoder_position_[index]) >= 0.5);
+    if (std::isfinite(raw_position)) {
+      last_encoder_position_[index] = raw_position;
+    }
+    health.drive_available[index] = drive_enabled;
+    health.drive_encoder_healthy[index] = update_encoder_feedback_health(
+      encoder_values_valid, encoder_changed, last_desired_motor_velocity_[index],
+      drive_enabled, dt, encoder_stale_timeout_, encoder_motion_threshold_,
+      encoder_stale_duration_[index]);
   }
   enabled_drive_count_.store(enabled_drive_count);
   maximum_measured_current_.store(maximum_measured_current);
@@ -687,21 +713,22 @@ controller_interface::return_type SpearDriveController::update(
         geometry_.steering_direction[index] * (raw - steering_zero_reference_[index]) /
         geometry_.steering_gear_ratio[index] -
         geometry_.steering_offset[index];
-      health.steering_healthy[index] = std::isfinite(steering_position[index]);
-      if (health.steering_healthy[index]) {
+      health.steering_encoder_healthy[index] = std::isfinite(steering_position[index]);
+      if (health.steering_encoder_healthy[index]) {
         last_valid_steering_[index] = steering_position[index];
       }
     } else {
-      steering_position[index] = std::numeric_limits<double>::quiet_NaN();
-      health.steering_healthy[index] = false;
+      steering_position[index] = last_valid_steering_[index];
+      health.steering_encoder_healthy[index] = false;
     }
   }
 
   if (zero_requested_.load()) {
     capture_steering_zero();
     for (std::size_t index = 0; index < kSteeringWheelCount; ++index) {
+      const double raw = steering_states_[index]->get_value();
       steering_position[index] = 0.0;
-      health.steering_healthy[index] = steering_zeroed_;
+      health.steering_encoder_healthy[index] = std::isfinite(raw);
     }
   }
 
@@ -729,7 +756,6 @@ controller_interface::return_type SpearDriveController::update(
   }
   imu_is_fresh_.store(imu_fresh);
 
-  health.last_valid_steering = last_valid_steering_;
   health.steering_zeroed = steering_zeroed_;
   health.command_fresh = command_fresh;
   health.imu_healthy = !monitor_imu_ || imu_fresh;
@@ -739,34 +765,36 @@ controller_interface::return_type SpearDriveController::update(
   if (decision.motion_scale > 0.0) {
     requested.linear_x *= decision.motion_scale;
     requested.angular_z *= decision.motion_scale;
-    if (decision.force_straight) {
-      requested.angular_z = 0.0;
-    }
     limited = command_limiter_.limit(requested, limits_, dt);
   } else {
     command_limiter_.reset();
   }
   DriveSetpoint setpoint = compute_drive_setpoint(geometry_, limits_, limited);
-  if (decision.force_straight) {
-    setpoint.steering_angle.fill(0.0);
-  }
 
   const double alignment_scale = steering_alignment_scale(
-    steering_position, setpoint.steering_angle, health.steering_healthy,
+    steering_position, setpoint.steering_angle, health.steering_encoder_healthy,
     limits_.steering_alignment_soft, limits_.steering_alignment_hard);
   const double yaw_error = imu_fresh ? limited.angular_z - measured_yaw_rate : 0.0;
 
+  std::array<double, kDriveWheelCount> desired_motor_velocity{};
+  for (std::size_t index = 0; index < kDriveWheelCount; ++index) {
+    desired_motor_velocity[index] = setpoint.wheel_angular_speed[index] *
+      geometry_.drive_gear_ratio[index] * geometry_.drive_direction[index];
+  }
+  std::array<double, kDriveWheelCount> current_command{};
   for (std::size_t index = 0; index < kDriveWheelCount; ++index) {
     if (!decision.drive_enabled[index] || decision.motion_scale <= 0.0) {
-      drive_current_commands_[index]->set_value(0.0);
       velocity_integral_[index] = 0.0;
       last_traction_scale_[index] = 0.0;
       continue;
     }
 
-    const double desired_motor_velocity = setpoint.wheel_angular_speed[index] *
-      geometry_.drive_gear_ratio[index] * geometry_.drive_direction[index];
-    const double velocity_error = desired_motor_velocity - motor_velocity[index];
+    if (!health.drive_encoder_healthy[index]) {
+      velocity_integral_[index] = 0.0;
+      last_traction_scale_[index] = 1.0;
+      continue;
+    }
+    const double velocity_error = desired_motor_velocity[index] - motor_velocity[index];
     velocity_integral_[index] = std::clamp(
       velocity_integral_[index] + velocity_error * dt,
       -integral_limit_, integral_limit_);
@@ -793,19 +821,32 @@ controller_interface::return_type SpearDriveController::update(
     const double side_sign = is_left_wheel(index) ? -1.0 : 1.0;
     const double yaw_current = side_sign * yaw_feedback_gain_ * yaw_error *
       geometry_.drive_direction[index];
-    const double current_command =
-      (velocity_feedforward_ * desired_motor_velocity +
+    current_command[index] =
+      (velocity_feedforward_ * desired_motor_velocity[index] +
       velocity_kp_ * velocity_error +
       velocity_ki_ * velocity_integral_[index]) * traction_scale + yaw_current;
-    drive_current_commands_[index]->set_value(
-      clamp_current(current_command * alignment_scale, max_motor_current_));
+  }
+
+  for (std::size_t index = 0; index < kDriveWheelCount; ++index) {
+    if (decision.drive_enabled[index] && !health.drive_encoder_healthy[index] &&
+      decision.motion_scale > 0.0)
+    {
+      current_command[index] = encoderless_current_command(
+        index, setpoint.wheel_angular_speed, geometry_.drive_direction,
+        current_command, health.drive_encoder_healthy, decision.drive_enabled,
+        last_motor_current_command_[index], last_desired_wheel_angular_speed_[index],
+        limits_.max_wheel_angular_speed, encoderless_full_speed_current_);
+    }
+    const double applied_current =
+      clamp_current(current_command[index] * alignment_scale, max_motor_current_);
+    drive_current_commands_[index]->set_value(applied_current);
+    last_desired_motor_velocity_[index] = desired_motor_velocity[index];
+    last_motor_current_command_[index] = applied_current;
+    last_desired_wheel_angular_speed_[index] = setpoint.wheel_angular_speed[index];
   }
 
   for (std::size_t index = 0; index < kSteeringWheelCount; ++index) {
-    double desired = setpoint.steering_angle[index];
-    if (!health.steering_healthy[index]) {
-      desired = last_valid_steering_[index];
-    }
+    const double desired = setpoint.steering_angle[index];
     const double raw_command = steering_zero_reference_[index] +
       geometry_.steering_direction[index] * (desired + geometry_.steering_offset[index]) *
       geometry_.steering_gear_ratio[index];
@@ -815,22 +856,43 @@ controller_interface::return_type SpearDriveController::update(
 
   const BodyTwistEstimate estimate = estimate_body_twist(
     geometry_, motor_velocity, steering_position,
-    health.drive_healthy, health.steering_healthy);
-  if (estimate.valid) {
-    estimated_linear_.store(estimate.linear_x);
-    estimated_yaw_rate_.store(estimate.angular_z);
-    const double previous_yaw = odom_yaw_.load();
-    odom_x_.store(odom_x_.load() + estimate.linear_x * std::cos(previous_yaw) * dt);
-    odom_y_.store(odom_y_.load() + estimate.linear_x * std::sin(previous_yaw) * dt);
-    odom_yaw_.store(std::remainder(previous_yaw + estimate.angular_z * dt, 2.0 * kPi));
-  }
+    health.drive_encoder_healthy, health.steering_encoder_healthy);
+  odometry_feedback_valid_.store(estimate.valid);
+  const double odometry_linear = estimate.valid ? estimate.linear_x : limited.linear_x;
+  const double odometry_yaw_rate = estimate.valid ? estimate.angular_z :
+    (imu_fresh ? measured_yaw_rate : limited.angular_z);
+  estimated_linear_.store(odometry_linear);
+  estimated_yaw_rate_.store(odometry_yaw_rate);
+  const double previous_yaw = odom_yaw_.load();
+  odom_x_.store(odom_x_.load() + odometry_linear * std::cos(previous_yaw) * dt);
+  odom_y_.store(odom_y_.load() + odometry_linear * std::sin(previous_yaw) * dt);
+  odom_yaw_.store(std::remainder(previous_yaw + odometry_yaw_rate * dt, 2.0 * kPi));
 
   mode_.store(static_cast<int>(decision.mode));
   last_motion_scale_.store(decision.motion_scale * alignment_scale);
   healthy_drive_count_.store(static_cast<int>(std::count(
-      health.drive_healthy.begin(), health.drive_healthy.end(), true)));
+      health.drive_encoder_healthy.begin(), health.drive_encoder_healthy.end(), true)));
   healthy_steering_count_.store(static_cast<int>(std::count(
-      health.steering_healthy.begin(), health.steering_healthy.end(), true)));
+      health.steering_encoder_healthy.begin(), health.steering_encoder_healthy.end(), true)));
+  unsigned int drive_available_mask = 0U;
+  unsigned int drive_encoder_health_mask = 0U;
+  unsigned int steering_encoder_health_mask = 0U;
+  for (std::size_t index = 0; index < kDriveWheelCount; ++index) {
+    if (health.drive_available[index]) {
+      drive_available_mask |= 1U << index;
+    }
+    if (health.drive_encoder_healthy[index]) {
+      drive_encoder_health_mask |= 1U << index;
+    }
+  }
+  for (std::size_t index = 0; index < kSteeringWheelCount; ++index) {
+    if (health.steering_encoder_healthy[index]) {
+      steering_encoder_health_mask |= 1U << index;
+    }
+  }
+  drive_available_mask_.store(drive_available_mask);
+  drive_encoder_health_mask_.store(drive_encoder_health_mask);
+  steering_encoder_health_mask_.store(steering_encoder_health_mask);
   return controller_interface::return_type::OK;
 }
 
@@ -850,7 +912,7 @@ void SpearDriveController::publish_status()
     status.level = diagnostic_msgs::msg::DiagnosticStatus::ERROR;
   } else if (mode == OperatingMode::DEGRADED_5WD ||
     mode == OperatingMode::DEGRADED_4WD ||
-    mode == OperatingMode::STEER_LIMP || mode == OperatingMode::IMU_DEGRADED)
+    mode == OperatingMode::SENSOR_DEGRADED)
   {
     status.level = diagnostic_msgs::msg::DiagnosticStatus::WARN;
   } else {
@@ -859,17 +921,35 @@ void SpearDriveController::publish_status()
   status.message = mode_name(mode);
   status.values.push_back(diagnostic_value("mode", mode_name(mode)));
   status.values.push_back(diagnostic_value(
-      "healthy_drive_wheels", std::to_string(healthy_drive_count_.load())));
+      "healthy_drive_encoders", std::to_string(healthy_drive_count_.load())));
   status.values.push_back(diagnostic_value(
       "enabled_drive_controllers", std::to_string(enabled_drive_count_.load())));
+  const unsigned int drive_available_mask = drive_available_mask_.load();
+  const unsigned int drive_encoder_health_mask = drive_encoder_health_mask_.load();
+  const unsigned int steering_encoder_health_mask = steering_encoder_health_mask_.load();
+  for (std::size_t index = 0; index < kDriveWheelCount; ++index) {
+    status.values.push_back(diagnostic_value(
+        drive_joints_[index] + ".available",
+        (drive_available_mask & (1U << index)) != 0U ? "true" : "false"));
+    status.values.push_back(diagnostic_value(
+        drive_joints_[index] + ".encoder_healthy",
+        (drive_encoder_health_mask & (1U << index)) != 0U ? "true" : "false"));
+  }
   status.values.push_back(diagnostic_value(
       "maximum_measured_current_A", std::to_string(maximum_measured_current_.load())));
   status.values.push_back(diagnostic_value(
-      "healthy_steering", std::to_string(healthy_steering_count_.load())));
+      "healthy_steering_encoders", std::to_string(healthy_steering_count_.load())));
+  for (std::size_t index = 0; index < kSteeringWheelCount; ++index) {
+    status.values.push_back(diagnostic_value(
+        steering_joints_[index] + ".encoder_healthy",
+        (steering_encoder_health_mask & (1U << index)) != 0U ? "true" : "false"));
+  }
   status.values.push_back(diagnostic_value(
       "command_fresh", command_is_fresh_.load() ? "true" : "false"));
   status.values.push_back(diagnostic_value(
       "imu_fresh", imu_is_fresh_.load() ? "true" : "false"));
+  status.values.push_back(diagnostic_value(
+      "odometry_feedback_valid", odometry_feedback_valid_.load() ? "true" : "false"));
   status.values.push_back(diagnostic_value(
       "motion_scale", std::to_string(last_motion_scale_.load())));
   diagnostics.status.push_back(status);

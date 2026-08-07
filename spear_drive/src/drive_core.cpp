@@ -89,6 +89,37 @@ double encoder_counts_per_second_to_motor_velocity(
     encoder_counts_per_motor_revolution;
 }
 
+bool update_encoder_feedback_health(
+  bool values_valid,
+  bool encoder_changed,
+  double last_desired_motor_velocity,
+  bool drive_available,
+  double period_seconds,
+  double stale_timeout,
+  double motion_threshold,
+  double & stale_duration)
+{
+  if (!std::isfinite(period_seconds) || period_seconds <= 0.0 ||
+    !finite_positive(stale_timeout) || !finite_positive(motion_threshold))
+  {
+    stale_duration = std::numeric_limits<double>::infinity();
+    return false;
+  }
+  if (!values_valid) {
+    stale_duration = stale_timeout + period_seconds;
+    return false;
+  }
+  if (encoder_changed || !drive_available ||
+    !std::isfinite(last_desired_motor_velocity) ||
+    std::abs(last_desired_motor_velocity) < motion_threshold)
+  {
+    stale_duration = 0.0;
+  } else {
+    stale_duration += period_seconds;
+  }
+  return std::isfinite(stale_duration) && stale_duration <= stale_timeout;
+}
+
 void validate_geometry(const Geometry & geometry)
 {
   for (std::size_t index = 0; index < kDriveWheelCount; ++index) {
@@ -252,13 +283,101 @@ double steering_alignment_scale(
       std::abs(wrap_angle(requested[index] - measured[index])));
   }
 
-  if (!any_healthy || largest_error >= hard_error) {
+  // Missing feedback is ignored here: the caller continues sending the
+  // position command open-loop and reports SENSOR_DEGRADED. Available steering
+  // feedback still protects the chassis from a measured alignment error.
+  if (!any_healthy) {
+    return 1.0;
+  }
+  if (largest_error >= hard_error) {
     return 0.0;
   }
   if (largest_error <= soft_error) {
     return 1.0;
   }
   return (hard_error - largest_error) / (hard_error - soft_error);
+}
+
+double encoderless_current_command(
+  std::size_t target_index,
+  const std::array<double, kDriveWheelCount> & desired_wheel_angular_speed,
+  const std::array<double, kDriveWheelCount> & drive_direction,
+  const std::array<double, kDriveWheelCount> & controlled_motor_current,
+  const std::array<bool, kDriveWheelCount> & encoder_healthy,
+  const std::array<bool, kDriveWheelCount> & drive_enabled,
+  double previous_motor_current,
+  double previous_desired_wheel_angular_speed,
+  double max_wheel_angular_speed,
+  double open_loop_current_at_max_speed)
+{
+  if (target_index >= kDriveWheelCount ||
+    !drive_enabled[target_index] ||
+    !std::isfinite(desired_wheel_angular_speed[target_index]) ||
+    !std::isfinite(drive_direction[target_index]) ||
+    !finite_positive(max_wheel_angular_speed) ||
+    !std::isfinite(open_loop_current_at_max_speed) ||
+    open_loop_current_at_max_speed < 0.0)
+  {
+    return 0.0;
+  }
+
+  const double target_speed = desired_wheel_angular_speed[target_index];
+  if (std::abs(target_speed) < 1e-6) {
+    return 0.0;
+  }
+
+  const bool target_is_left =
+    target_index == FRONT_LEFT || target_index == MIDDLE_LEFT || target_index == REAR_LEFT;
+  const double reference_speed = std::max(0.05 * max_wheel_angular_speed, 1e-3);
+
+  const auto peer_estimate = [&](bool same_side_only, bool & found) {
+      double current_per_wheel_speed = 0.0;
+      std::size_t samples = 0;
+      for (std::size_t index = 0; index < kDriveWheelCount; ++index) {
+        const bool peer_is_left =
+          index == FRONT_LEFT || index == MIDDLE_LEFT || index == REAR_LEFT;
+        if (index == target_index || !drive_enabled[index] || !encoder_healthy[index] ||
+          (same_side_only && peer_is_left != target_is_left) ||
+          !std::isfinite(controlled_motor_current[index]) ||
+          !std::isfinite(desired_wheel_angular_speed[index]) ||
+          !std::isfinite(drive_direction[index]) ||
+          std::abs(desired_wheel_angular_speed[index]) < reference_speed)
+        {
+          continue;
+        }
+        const double output_current =
+          controlled_motor_current[index] * drive_direction[index];
+        current_per_wheel_speed +=
+          output_current / desired_wheel_angular_speed[index];
+        ++samples;
+      }
+      found = samples > 0;
+      return found ?
+        target_speed * (current_per_wheel_speed / static_cast<double>(samples)) *
+        drive_direction[target_index] : 0.0;
+    };
+
+  bool found = false;
+  double command = peer_estimate(true, found);
+  if (!found) {
+    command = peer_estimate(false, found);
+  }
+  if (found && std::isfinite(command)) {
+    return command;
+  }
+
+  if (std::isfinite(previous_motor_current) &&
+    std::isfinite(previous_desired_wheel_angular_speed) &&
+    std::abs(previous_desired_wheel_angular_speed) >= reference_speed)
+  {
+    return previous_motor_current * target_speed /
+      previous_desired_wheel_angular_speed;
+  }
+
+  const double normalized_speed = std::clamp(
+    target_speed / max_wheel_angular_speed, -1.0, 1.0);
+  return normalized_speed * open_loop_current_at_max_speed *
+    drive_direction[target_index];
 }
 
 BodyTwistEstimate estimate_body_twist(

@@ -61,7 +61,7 @@ spear_drive_controller:
     command_timeout: 0.30
     imu_timeout: 0.30
     # ZED ROS 2 wrapper default for camera_name:=zed and node_name:=zed_node.
-    # Loss of this stream enters IMU_DEGRADED; it does not stop encoder-only driving.
+    # Loss enters full-command SENSOR_DEGRADED; encoder-only driving continues.
     monitor_imu: true
     imu_topic: /zed/zed_node/imu/data
     velocity_kp: 0.35
@@ -70,18 +70,26 @@ spear_drive_controller:
     # The velocity loop outputs motor current in A. Embedded clamps at 3 A.
     # Confirm this value with the electrical team before powered testing.
     max_motor_current: 2.0
+    # If a drive encoder is lost, copy normalized effort from healthy peers.
+    # If every drive encoder is lost, command this current at max wheel speed
+    # and scale it linearly with requested wheel speed. Tune on the real rover.
+    encoderless_full_speed_current: 0.8
+    # Treat unchanged encoder_counts as lost after this long while that motor
+    # has been commanded above encoder_motion_threshold (motor rad/s).
+    encoder_stale_timeout: 0.75
+    encoder_motion_threshold: 0.5
     integral_limit: 1.0
     yaw_feedback_gain: 0.25
     slip_ratio_threshold: 0.30
     slip_reference_speed: 0.30
     minimum_traction_scale: 0.25
 
-    minimum_healthy_drive_wheels: 4
-    minimum_healthy_wheels_per_side: 2
+    # These apply only when a motor controller reports unavailable. Encoder and
+    # IMU failures keep motion_scale=1.0 and do not consume these counts.
+    minimum_available_drive_wheels: 4
+    minimum_available_wheels_per_side: 2
     degraded_5wd_scale: 0.65
     degraded_4wd_scale: 0.35
-    steering_limp_scale: 0.20
-    steering_straight_tolerance: 0.15
 
     odom_frame: odom
     base_frame: base_link

@@ -91,6 +91,9 @@ private:
   double velocity_ki_{0.0};
   double velocity_feedforward_{0.0};
   double max_motor_current_{2.0};
+  double encoderless_full_speed_current_{0.8};
+  double encoder_stale_timeout_{0.75};
+  double encoder_motion_threshold_{0.5};
   double integral_limit_{1.0};
   double yaw_feedback_gain_{0.25};
   double slip_ratio_threshold_{0.30};
@@ -126,6 +129,11 @@ private:
   std::array<double, kSteeringWheelCount> steering_zero_reference_{};
   std::array<double, kSteeringWheelCount> last_valid_steering_{};
   std::array<double, kDriveWheelCount> velocity_integral_{};
+  std::array<double, kDriveWheelCount> last_encoder_position_{};
+  std::array<double, kDriveWheelCount> encoder_stale_duration_{};
+  std::array<double, kDriveWheelCount> last_desired_motor_velocity_{};
+  std::array<double, kDriveWheelCount> last_motor_current_command_{};
+  std::array<double, kDriveWheelCount> last_desired_wheel_angular_speed_{};
   std::array<double, kDriveWheelCount> last_traction_scale_{};
   CommandLimiter command_limiter_{};
   bool steering_zeroed_{false};
@@ -150,9 +158,13 @@ private:
   std::atomic<int> healthy_drive_count_{0};
   std::atomic<int> enabled_drive_count_{0};
   std::atomic<int> healthy_steering_count_{0};
+  std::atomic<unsigned int> drive_available_mask_{0U};
+  std::atomic<unsigned int> drive_encoder_health_mask_{0U};
+  std::atomic<unsigned int> steering_encoder_health_mask_{0U};
   std::atomic<double> maximum_measured_current_{0.0};
   std::atomic_bool command_is_fresh_{false};
   std::atomic_bool imu_is_fresh_{false};
+  std::atomic_bool odometry_feedback_valid_{false};
   std::atomic_bool motion_requested_{false};
 };
 

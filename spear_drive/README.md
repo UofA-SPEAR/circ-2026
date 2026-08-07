@@ -36,10 +36,15 @@ the team merges the shared-master integration described below.
 - Per-wheel overspeed/slip current reduction and IMU yaw feedback.
 - Encoder odometry and drivetrain diagnostics.
 - Command and IMU freshness checks local to the rover controller.
-- Five-wheel and balanced four-wheel degraded modes when the hardware layer
-  marks an individual motor velocity invalid while the EtherCAT slave stays online.
-- A straight-only steering limp mode that isolates the drive motor behind a
-  failed corner. An unknown or off-centre steering failure stops motion.
+- Drive and steering encoder loss is separated from actuator loss. Sensor loss
+  preserves the selected speed profile and leaves working motors commanded.
+- A drive motor with missing encoder feedback copies normalized current from
+  healthy peers. If every wheel encoder is lost, the controller retains and
+  scales each motor's last operating current, then uses bounded proportional
+  current when no operating sample exists.
+- Steering position commands continue open-loop when steering feedback is lost.
+- Five-wheel and balanced four-wheel modes remain for an actuator that actually
+  reports unavailable, rather than for a missing encoder.
 - An isolated drive joystick topic with release-before-arm, neutral hold,
   held deadman, precision mode, single-publisher check, and timeout.
 - Mock hardware and dependency-free core tests.
@@ -76,8 +81,32 @@ longitudinal slip estimation later.
   an embedded PDO revision.
 - Relative steering zero is captured from a mechanically straight startup
   position. This is not a substitute for absolute encoders or limit switches.
-- Degraded modes are bounded controller behaviors that still require deliberate
-  hardware fault-injection testing before competition use.
+- A motor with no encoder cannot have independent closed-loop speed control.
+  Healthy peer encoders preserve chassis-level regulation; if every drive
+  encoder is lost, speed is no longer observable and the controller necessarily
+  falls back to open-loop current. `encoderless_full_speed_current` must be tuned.
+- With missing steering feedback, the controller cannot verify actual wheel
+  angle or alignment. It continues sending position commands on the assumption
+  that the stepper and EtherCAT slave still work.
+- Sensor-continuation modes require deliberate hardware fault-injection testing
+  before competition use.
+
+## Failure behavior
+
+Sensor faults never select the crawl profile or multiply the motion request by a
+reduced-speed factor. They change diagnostics to `SENSOR_DEGRADED` while retaining
+the limits of the profile selected by the operator. Diagnostics include each
+drive controller's availability, every drive/steering encoder health flag,
+`imu_fresh`, and whether odometry is still based on measured feedback.
+
+| Failure | Drive behavior | Diagnostic |
+|---|---|---|
+| ZED X IMU missing/stale | Full selected profile; yaw feedback term disabled | `SENSOR_DEGRADED` |
+| One or more drive encoders invalid | Motors stay enabled; healthy same-side effort is copied, then any healthy peer | `SENSOR_DEGRADED` |
+| All drive encoders invalid | Retain/scale last motor currents, then bounded open-loop current; odometry uses commanded linear speed and IMU/commanded yaw | `SENSOR_DEGRADED` |
+| Steering encoder invalid | Continue desired position commands open-loop; ignore missing measurement in alignment gating | `SENSOR_DEGRADED` |
+| Motor controller reports unavailable | Isolate that actuator; retain the configured 5WD/4WD actuator-failure policy | `DEGRADED_5WD`, `DEGRADED_4WD`, or `FAULT_STOP` |
+| EtherCAT master unavailable or drive command stale | Zero motor current | `FAULT_STOP` or `READY` |
 
 ## ZED X IMU
 
@@ -107,9 +136,10 @@ the wheels off the ground before enabling yaw feedback. If the camera is mounted
 in another orientation, transform the IMU stream into `base_link` rather than
 silently changing the feedback sign in this controller.
 
-If the ZED process or camera disappears, the controller selects reduced-speed
-`IMU_DEGRADED` mode and continues encoder-only driving; it does not stop the
-rover. The current mode and `imu_fresh` flag are exposed in diagnostics.
+If the ZED process or camera disappears, the controller disables only the IMU
+yaw correction. It selects full-command `SENSOR_DEGRADED` mode and continues
+encoder-only driving without reducing the selected profile limits. The current
+mode and `imu_fresh` flag are exposed in diagnostics.
 
 ## No hidden actuation switch
 
@@ -138,10 +168,14 @@ test:
 7. Four steering hard-stop angles with a mechanical safety margin.
 8. Steering offsets after the wheels are mechanically straight.
 9. Allowable motor current and velocity-loop gains in A-based units.
+10. `encoderless_full_speed_current`, `encoder_stale_timeout`, and
+    `encoder_motion_threshold` on the lifted rover and then representative ground.
 
 Because steering encoders are relative, all four wheels must be physically
 straight before controller activation. `auto_zero_on_activate` records that
-position as zero. With the deadman released, zero can be captured again with:
+position as zero. If a steering encoder is already invalid, its embedded
+position origin is assumed to be zero and subsequent steering commands are
+open-loop. With the deadman released, zero can be captured again with:
 
 ```bash
 ros2 service call /spear_drive_controller/zero_steering std_srvs/srv/Trigger '{}'
@@ -237,11 +271,15 @@ Positions 6-11 must report `spear_motor_brushed_dc` and the four-output/five-inp
 PDO documented above. Compare positions 12-15 against arm stepper position 5;
 their PDO listings must be identical before reusing `stepper_config.yaml`.
 
-For limp mode, a motor or encoder fault must not take the EtherCAT slave off the
-bus. The embedded/hardware layer should keep exchanging PDOs and expose only the
-failed actuator state as non-finite (or later expose a dedicated fault state).
-A disconnected slave or lost EtherCAT master is a system-level stop because the
-controller can no longer prove commands are reaching the remaining actuators.
+For sensor-continuation mode, an encoder fault must not take its EtherCAT slave
+off the bus. The embedded/hardware layer should keep exchanging PDOs, keep the
+motor command interface available, and expose only the failed encoder state as
+non-finite when possible. The controller also recognizes `encoder_counts` that
+remain unchanged longer than `encoder_stale_timeout` while that motor is being
+commanded. If embedded clears the drive-enabled status bit, the controller
+correctly interprets that as an actuator failure and isolates the motor. A
+disconnected slave or lost EtherCAT master remains a system-level stop because
+the controller can no longer send commands to the remaining actuators.
 
 The ROS-facing drive command is current in amperes; the PDO layer multiplies it
 by 1000 for the firmware's mA target. Encoder counts/s are converted to motor
@@ -336,8 +374,9 @@ Release the deadman once, hold both axes neutral for 0.2 seconds, then hold the
 deadman to drive. Change the mapping in the YAML if the actual controllers
 report different indexes.
 
-The launch accepts `crawl`, `wet`, and `normal` profiles. Competition startup
-should name a profile explicitly; begin all commissioning with `crawl`.
+The launch accepts `crawl`, `wet`, and `normal` profiles and defaults to
+`normal`. Competition startup should still name a profile explicitly; begin all
+commissioning with an explicit `profile:=crawl`.
 
 For two identical USB gamepads, create stable udev identities based on device
 serial/USB path before competition. Do not rely only on whichever controller
@@ -353,7 +392,9 @@ happens to become `/dev/input/js0` after a reboot.
 5. Low-speed flat-ground geometry and odometry tuning.
 6. Tune velocity/current limits with current feedback visible. Temperature is
    not present in the current embedded PDO and must be added before it can be monitored.
-7. Test each single-wheel and steering feedback failure intentionally.
+7. Inject each drive encoder, steering encoder, and IMU failure individually;
+   then test total encoder loss and verify `SENSOR_DEGRADED` retains a 1.0
+   `motion_scale` while the fallback currents remain bounded.
 8. Tune the wet profile on representative wet soil, then lock the competition
    parameter files and record their commit.
 
@@ -369,5 +410,7 @@ on-ground hardware test.
   steering configuration.
 - Replace every parameter marked `PLACEHOLDER` in `drive_controller.yaml`.
 - Verify joystick axes, deadman, neutral-to-arm sequence, and stale-command stop.
+- Tune `encoderless_full_speed_current` and verify encoder-failure current
+  direction on all six motors with the rover lifted.
 - Run the core test and mock launch before connecting actuator power.
 - Lift the rover and commission one actuator at a time using the crawl profile.

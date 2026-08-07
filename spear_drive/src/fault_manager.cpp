@@ -29,7 +29,7 @@ FaultDecision evaluate_faults(
   const FaultPolicy & policy)
 {
   FaultDecision decision;
-  decision.drive_enabled = health.drive_healthy;
+  decision.drive_enabled = health.drive_available;
 
   if (!health.master_healthy) {
     decision.drive_enabled.fill(false);
@@ -50,56 +50,39 @@ FaultDecision evaluate_faults(
     return decision;
   }
 
-  bool steering_limp = false;
-  for (std::size_t index = 0; index < kSteeringWheelCount; ++index) {
-    if (health.steering_healthy[index]) {
-      continue;
-    }
-    const std::size_t drive_index = kSteeringDriveIndexes[index];
-    decision.drive_enabled[drive_index] = false;
-    if (!std::isfinite(health.last_valid_steering[index]) ||
-      std::abs(health.last_valid_steering[index]) >
-      policy.steering_straight_tolerance)
-    {
-      decision.drive_enabled.fill(false);
-      decision.mode = OperatingMode::FAULT_STOP;
-      decision.reason = "failed steering wheel is not known to be near straight";
-      return decision;
-    }
-    steering_limp = true;
-  }
-
   const std::size_t total = static_cast<std::size_t>(std::count(
       decision.drive_enabled.begin(), decision.drive_enabled.end(), true));
   const std::size_t left = count_enabled(decision.drive_enabled, kLeftDriveIndexes);
   const std::size_t right = count_enabled(decision.drive_enabled, kRightDriveIndexes);
-  if (total < policy.minimum_healthy_drive_wheels ||
-    left < policy.minimum_healthy_wheels_per_side ||
-    right < policy.minimum_healthy_wheels_per_side)
+  if (total < policy.minimum_available_drive_wheels ||
+    left < policy.minimum_available_wheels_per_side ||
+    right < policy.minimum_available_wheels_per_side)
   {
     decision.drive_enabled.fill(false);
     decision.mode = OperatingMode::FAULT_STOP;
-    decision.reason = "insufficient healthy drive wheels for bounded yaw control";
+    decision.reason = "insufficient available drive actuators for bounded yaw control";
     return decision;
   }
 
-  if (steering_limp) {
-    decision.mode = OperatingMode::STEER_LIMP;
-    decision.motion_scale = policy.steering_limp_scale;
-    decision.force_straight = true;
-    decision.reason = "steering feedback lost near straight; corner drive isolated";
-  } else if (total == 4) {
+  if (total < kDriveWheelCount - 1U) {
     decision.mode = OperatingMode::DEGRADED_4WD;
     decision.motion_scale = policy.degraded_4wd_scale;
-    decision.reason = "two drive actuators isolated";
-  } else if (total == 5) {
+    decision.reason = "multiple drive actuators isolated";
+  } else if (total == kDriveWheelCount - 1U) {
     decision.mode = OperatingMode::DEGRADED_5WD;
     decision.motion_scale = policy.degraded_5wd_scale;
     decision.reason = "one drive actuator isolated";
-  } else if (!health.imu_healthy) {
-    decision.mode = OperatingMode::IMU_DEGRADED;
-    decision.motion_scale = policy.degraded_5wd_scale;
-    decision.reason = "IMU unavailable; yaw stabilization and traction confidence reduced";
+  } else if (!std::all_of(
+      health.drive_encoder_healthy.begin(), health.drive_encoder_healthy.end(),
+      [](bool healthy) {return healthy;}) ||
+    !std::all_of(
+      health.steering_encoder_healthy.begin(), health.steering_encoder_healthy.end(),
+      [](bool healthy) {return healthy;}) ||
+    !health.imu_healthy)
+  {
+    decision.mode = OperatingMode::SENSOR_DEGRADED;
+    decision.motion_scale = 1.0;
+    decision.reason = "sensor feedback unavailable; continuing at commanded limits";
   } else {
     decision.mode = OperatingMode::ACTIVE;
     decision.motion_scale = 1.0;
@@ -117,8 +100,7 @@ const char * mode_name(OperatingMode mode)
     case OperatingMode::ACTIVE: return "ACTIVE";
     case OperatingMode::DEGRADED_5WD: return "DEGRADED_5WD";
     case OperatingMode::DEGRADED_4WD: return "DEGRADED_4WD";
-    case OperatingMode::STEER_LIMP: return "STEER_LIMP";
-    case OperatingMode::IMU_DEGRADED: return "IMU_DEGRADED";
+    case OperatingMode::SENSOR_DEGRADED: return "SENSOR_DEGRADED";
     case OperatingMode::FAULT_STOP: return "FAULT_STOP";
   }
   return "UNKNOWN";

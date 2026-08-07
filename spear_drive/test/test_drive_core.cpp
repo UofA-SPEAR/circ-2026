@@ -118,6 +118,23 @@ void test_encoder_scaling()
   expect(std::isnan(
       spear_drive::encoder_counts_per_second_to_motor_velocity(28.0, 0.0)),
     "invalid encoder scale produces a non-finite state");
+
+  double stale_duration = 0.0;
+  expect(spear_drive::update_encoder_feedback_health(
+      true, false, 0.0, true, 0.4, 0.75, 0.5, stale_duration),
+    "stationary encoder is healthy when no motion is requested");
+  expect(spear_drive::update_encoder_feedback_health(
+      true, false, 2.0, true, 0.4, 0.75, 0.5, stale_duration),
+    "unchanged encoder remains healthy inside stale timeout");
+  expect(!spear_drive::update_encoder_feedback_health(
+      true, false, 2.0, true, 0.4, 0.75, 0.5, stale_duration),
+    "unchanged encoder becomes unhealthy after stale timeout");
+  expect(spear_drive::update_encoder_feedback_health(
+      true, true, 2.0, true, 0.01, 0.75, 0.5, stale_duration),
+    "encoder count movement immediately restores feedback health");
+  expect(!spear_drive::update_encoder_feedback_health(
+      false, false, 2.0, true, 0.01, 0.75, 0.5, stale_duration),
+    "non-finite encoder feedback is unhealthy without throwing");
 }
 
 void test_alignment_and_limiter()
@@ -134,6 +151,11 @@ void test_alignment_and_limiter()
   const double partial = spear_drive::steering_alignment_scale(
     measured, requested, healthy, 0.08, 0.25);
   expect(partial > 0.0 && partial < 1.0, "steering alignment tapers drive current");
+  healthy.fill(false);
+  expect_near(
+    spear_drive::steering_alignment_scale(measured, requested, healthy, 0.08, 0.25),
+    1.0, 1e-12,
+    "missing steering feedback does not scale the drive command");
 
   spear_drive::CommandLimiter limiter;
   auto constraints = limits();
@@ -144,12 +166,48 @@ void test_alignment_and_limiter()
     "jerk limiter prevents a full-speed step");
 }
 
+void test_encoderless_current_fallback()
+{
+  std::array<double, spear_drive::kDriveWheelCount> desired{};
+  desired.fill(4.0);
+  const std::array<double, spear_drive::kDriveWheelCount> direction = {
+    1.0, -1.0, 1.0, -1.0, 1.0, -1.0};
+  std::array<double, spear_drive::kDriveWheelCount> current{};
+  std::array<bool, spear_drive::kDriveWheelCount> encoder_healthy{};
+  std::array<bool, spear_drive::kDriveWheelCount> drive_enabled{};
+  drive_enabled.fill(true);
+
+  encoder_healthy[spear_drive::MIDDLE_LEFT] = true;
+  current[spear_drive::MIDDLE_LEFT] = 0.6;
+  expect_near(
+    spear_drive::encoderless_current_command(
+      spear_drive::FRONT_LEFT, desired, direction, current,
+      encoder_healthy, drive_enabled, 0.0, 0.0, 10.0, 0.8),
+    0.6, 1e-12,
+    "failed left encoder copies normalized effort from a healthy left peer");
+
+  encoder_healthy.fill(false);
+  expect_near(
+    spear_drive::encoderless_current_command(
+      spear_drive::FRONT_RIGHT, desired, direction, current,
+      encoder_healthy, drive_enabled, 0.0, 0.0, 10.0, 0.8),
+    -0.32, 1e-12,
+    "all-encoder-loss fallback scales open-loop current with requested speed");
+
+  expect_near(
+    spear_drive::encoderless_current_command(
+      spear_drive::FRONT_RIGHT, desired, direction, current,
+      encoder_healthy, drive_enabled, -0.7, 4.0, 10.0, 0.8),
+    -0.7, 1e-12,
+    "total encoder loss retains prior operating current before open-loop fallback");
+}
+
 spear_drive::HealthSnapshot healthy_snapshot()
 {
   spear_drive::HealthSnapshot health;
-  health.drive_healthy.fill(true);
-  health.steering_healthy.fill(true);
-  health.last_valid_steering.fill(0.0);
+  health.drive_available.fill(true);
+  health.drive_encoder_healthy.fill(true);
+  health.steering_encoder_healthy.fill(true);
   health.master_healthy = true;
   health.imu_healthy = true;
   health.steering_zeroed = true;
@@ -165,33 +223,44 @@ void test_fault_policy()
   expect(decision.mode == spear_drive::OperatingMode::ACTIVE,
     "healthy drivetrain enters ACTIVE");
 
-  health.drive_healthy[spear_drive::FRONT_LEFT] = false;
+  health.drive_encoder_healthy[spear_drive::FRONT_LEFT] = false;
   decision = spear_drive::evaluate_faults(health, policy);
-  expect(decision.mode == spear_drive::OperatingMode::DEGRADED_5WD,
-    "one failed drive enters five-wheel limp mode");
-  expect(!decision.drive_enabled[spear_drive::FRONT_LEFT],
-    "failed wheel is isolated");
+  expect(decision.mode == spear_drive::OperatingMode::SENSOR_DEGRADED,
+    "one failed drive encoder enters sensor-degraded mode");
+  expect_near(decision.motion_scale, 1.0, 1e-12,
+    "encoder loss does not reduce chassis commands");
+  expect(decision.drive_enabled[spear_drive::FRONT_LEFT],
+    "motor stays commanded when only its encoder is lost");
 
-  health.drive_healthy[spear_drive::REAR_LEFT] = false;
+  health.drive_encoder_healthy.fill(false);
   decision = spear_drive::evaluate_faults(health, policy);
-  expect(decision.mode == spear_drive::OperatingMode::FAULT_STOP,
-    "one remaining wheel on a side cannot preserve bounded yaw control");
-  expect(std::none_of(decision.drive_enabled.begin(), decision.drive_enabled.end(),
-    [](bool enabled) {return enabled;}), "fault stop disables all wheel commands");
+  expect(decision.mode == spear_drive::OperatingMode::SENSOR_DEGRADED,
+    "loss of every drive encoder remains a sensor fault");
+  expect_near(decision.motion_scale, 1.0, 1e-12,
+    "complete encoder loss retains the selected speed profile");
+  expect(std::all_of(decision.drive_enabled.begin(), decision.drive_enabled.end(),
+    [](bool enabled) {return enabled;}), "all working motors remain commanded");
 
   health = healthy_snapshot();
-  health.steering_healthy[spear_drive::STEER_FRONT_LEFT] = false;
+  health.drive_available[spear_drive::FRONT_LEFT] = false;
   decision = spear_drive::evaluate_faults(health, policy);
-  expect(decision.mode == spear_drive::OperatingMode::STEER_LIMP,
-    "near-straight steering failure enters steer limp mode");
-  expect(decision.force_straight, "steer limp forces a straight crawl");
+  expect(decision.mode == spear_drive::OperatingMode::DEGRADED_5WD,
+    "an unavailable motor, unlike its encoder, enters five-wheel mode");
   expect(!decision.drive_enabled[spear_drive::FRONT_LEFT],
-    "drive behind failed steering is isolated");
+    "an unavailable motor controller is isolated");
 
-  health.last_valid_steering[spear_drive::STEER_FRONT_LEFT] = 0.4;
+  health.drive_available[spear_drive::REAR_LEFT] = false;
   decision = spear_drive::evaluate_faults(health, policy);
   expect(decision.mode == spear_drive::OperatingMode::FAULT_STOP,
-    "off-centre steering failure stops instead of guessing wheel direction");
+    "one actually available wheel on a side cannot preserve bounded yaw control");
+
+  health = healthy_snapshot();
+  health.steering_encoder_healthy[spear_drive::STEER_FRONT_LEFT] = false;
+  decision = spear_drive::evaluate_faults(health, policy);
+  expect(decision.mode == spear_drive::OperatingMode::SENSOR_DEGRADED,
+    "steering encoder loss remains a full-command sensor fault");
+  expect_near(decision.motion_scale, 1.0, 1e-12,
+    "steering encoder loss does not force crawl speed");
 
   health = healthy_snapshot();
   health.command_fresh = false;
@@ -210,8 +279,10 @@ void test_fault_policy()
   health = healthy_snapshot();
   health.imu_healthy = false;
   decision = spear_drive::evaluate_faults(health, policy);
-  expect(decision.mode == spear_drive::OperatingMode::IMU_DEGRADED,
-    "IMU loss degrades speed without disabling encoder-only driving");
+  expect(decision.mode == spear_drive::OperatingMode::SENSOR_DEGRADED,
+    "IMU loss remains visible without disabling encoder-only driving");
+  expect_near(decision.motion_scale, 1.0, 1e-12,
+    "IMU loss does not reduce the selected speed profile");
 }
 
 void test_joystick_mapping()
@@ -230,6 +301,7 @@ int main()
   test_kinematics();
   test_encoder_scaling();
   test_alignment_and_limiter();
+  test_encoderless_current_fallback();
   test_fault_policy();
   test_joystick_mapping();
   if (failures != 0) {
