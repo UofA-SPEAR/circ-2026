@@ -7,3 +7,5 @@ debug.txt
 
 
 __pycache__/
+
+COLCON_IGNORE

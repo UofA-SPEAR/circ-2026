@@ -8,7 +8,7 @@
         <param name="master_id">0</param>
         <param name="control_frequency">1000</param>
       </hardware>
-      <!-- <joint name="joint_1">
+      <joint name="joint_1">
         <state_interface name="position"/>
         <state_interface name="velocity"/>
         <state_interface name="bus_voltage"/>
@@ -136,8 +136,8 @@
           <param name="position">5</param>
           <param name="slave_config">$(find plex_ethercat)/config/stepper_config.yaml</param>
         </ec_module>
-      </joint> -->
-      <joint name="drive_1">
+      </joint>
+      <!-- <joint name="drive_1">
         <command_interface name="control_word"/>
         <command_interface name="position"/>
         <command_interface name="velocity"/>
@@ -149,42 +149,10 @@
         <ec_module name="drive_joint_1">
           <plugin>ethercat_generic_plugins/GenericEcSlave</plugin>
           <param name="alias">0</param>
-          <param name="position">1</param>
+          <param name="position">0</param>
           <param name="slave_config">$(find plex_ethercat)/config/dc_config.yaml</param>
         </ec_module>
-      </joint>
-      <joint name="drive_2">
-        <command_interface name="control_word"/>
-        <command_interface name="position"/>
-        <command_interface name="velocity"/>
-        <command_interface name="current"/>
-        <state_interface name="status_word"/>
-        <state_interface name="position"/>
-        <state_interface name="velocity"/>
-        <state_interface name="current"/>
-        <ec_module name="drive_joint_2">
-          <plugin>ethercat_generic_plugins/GenericEcSlave</plugin>
-          <param name="alias">0</param>
-          <param name="position">2</param>
-          <param name="slave_config">$(find plex_ethercat)/config/dc_config.yaml</param>
-        </ec_module>
-      </joint>
-      <joint name="drive_3">
-        <command_interface name="control_word"/>
-        <command_interface name="position"/>
-        <command_interface name="velocity"/>
-        <command_interface name="current"/>
-        <state_interface name="status_word"/>
-        <state_interface name="position"/>
-        <state_interface name="velocity"/>
-        <state_interface name="current"/>
-        <ec_module name="drive_joint_3">
-          <plugin>ethercat_generic_plugins/GenericEcSlave</plugin>
-          <param name="alias">0</param>
-          <param name="position">3</param>
-          <param name="slave_config">$(find plex_ethercat)/config/dc_config.yaml</param>
-        </ec_module>
-      </joint>
+      </joint> -->
     </ros2_control>
   </xacro:macro>
 </robot>

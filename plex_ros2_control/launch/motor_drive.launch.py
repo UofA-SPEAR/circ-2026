@@ -107,6 +107,12 @@ def generate_launch_description():
         arguments=["control_word_controller", "-c", "/controller_manager"],
     )
 
+    current_controller_spawner = Node(
+        package="controller_manager",
+        executable="spawner",
+        arguments=["current_controller", "-c", "/controller_manager"],
+    )
+
     nodes = [
         control_node,
         robot_state_pub_node,
@@ -116,6 +122,7 @@ def generate_launch_description():
         velocity_controller_spawner,
         # effort_controller_spawner,
         control_word_controller_spawner,
+        current_controller_spawner,
     ]
 
     return LaunchDescription(
