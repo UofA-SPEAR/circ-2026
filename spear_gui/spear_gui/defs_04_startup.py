@@ -346,6 +346,7 @@ startup_window = WindowDef(
         ButtonDef(key=Qt.Key_Space, mandatory_keys=Qt.Key_Shift, 
                   event_out=[get_event('main_page'), get_event('startup_phase_flip'), get_event('startup_phase'), get_event('startup_subscription_phase')], 
                   event_delta=['open', 'open', 'close', 'close']),
+        ButtonDef(key=Qt.Key_O, event_out=get_event('info_setting_phase'), action='cycle', event_delta=['open', 'close']),
 
         # ButtonDef(poly_def=PolygonDef(p=[P(1, 0.5)]*4, px=[P(-500, 5), P(-300, 5), P(-320, 25), P(-500, 25)], fill_color=QColor(255, 255, 255, 255), phases={
         #     'open': Phase([PolygonTween(px=[P(-500, 5), P(-300, 5), P(-320, 25), P(-500, 25)], start=0, dur=1.0, ease=QEasingCurve.OutQuint)])
@@ -379,6 +380,12 @@ OVERLAY_WINDOWS = [
     WindowDef(
         p1=P(0.0, 0.0), p2=P(1.0, 1.0),
         polygon_defs=[
+            # Info Setting Enabled
+            RectDef(p1=P(0, 0), p2=P(1, 1), fill_color=QColor(0, 0, 0, 0), phase_override=get_event('info_setting_phase'), phases={
+                'open':  Phase([RectTween(fill_color=QColor(0, 0, 0, 255), start=0, dur=0.5, ease=QEasingCurve.OutQuint)]),
+                'close': Phase([RectTween(fill_color=QColor(0, 0, 0, 0), start=0, dur=1.0, ease=QEasingCurve.OutQuint)]),
+            }),
+
             # Fill
             RectDef(p1=P(0, 0), p2=P(1, 0), gradient=get_gradient('alt_color_fill'), phase_override=get_event('startup_phase'), phases={
                 'open': Phase([RectTween(px2=P(0, 10), start=0, dur=1.0, ease=QEasingCurve.OutQuint)])
@@ -520,11 +527,12 @@ OVERLAY_WINDOWS = [
                 'always': Phase([PolygonTween(px=[P(0, 200), P(0, 200), P(0, 200), P(0, 200)], start=0.0, dur=20.0, ease=QEasingCurve.InOutSine),
                                 PolygonTween(px=[P(0, 0), P(0, 0), P(0, 0), P(0, 0)], start=20.0, dur=20.0, ease=QEasingCurve.InOutSine)], loop=True, stop_phases=['close']),
             }),
+            # RectDef(p1=P(0.5, 0.81), p2=P(0.5, 0.81), px1=P(-120, -5), px2=P(120, 5))
         ],
         text_defs=[
             # Time
             TextDef(
-                p=P(0.5, 0), px=P(0, 1), text='- <#> -', font_size=15, h_align=0.5, v_align=0.0, fill_color=QColor(0,0,0,0), text_fn=lambda ctx: datetime.now(ZoneInfo('America/Edmonton')).time().replace(microsecond=0),
+                p=P(0.5, 0), px=P(0, 1), text='- <#> -', font_size=15, h_align=0.5, v_align=0.0, font_family='Oxanium SemiBold', fill_color=QColor(0,0,0,0), text_fn=lambda ctx: datetime.now(ZoneInfo('America/Edmonton')).time().replace(microsecond=0),
                 phase_override=get_event('startup_phase'), phases={
                     'open': Phase([TextTween(fill_color=QColor(0, 0, 0, 255), start=0.5, dur=1.0, ease=QEasingCurve.OutQuint)])
                 }
@@ -536,7 +544,7 @@ OVERLAY_WINDOWS = [
                 }
             ),
         ]
-    )
+    ),
 ]
 
 register_windows(9, OVERLAY_WINDOWS)

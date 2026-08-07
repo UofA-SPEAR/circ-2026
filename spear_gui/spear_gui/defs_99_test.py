@@ -258,14 +258,8 @@ def _toggle_fullscreen_window(name: str):
         prev    = get_event('fullscreen_selection').value
         new_sel = None if prev == name else name
         if prev is not None:
-            print('prev is not none')
             anim_prev = get_animated_window(WINDOW_DEF_REFS[prev])
             if anim_prev is not None:
-                print('anim prev is not none')
-                print(get_event(f'layout_win_{prev}_base_p1').value)
-                print(get_event(f'layout_win_{prev}_base_p2').value)
-                print(get_event(f'layout_win_{prev}_base_px1').value)
-                print(get_event(f'layout_win_{prev}_base_px2').value)
                 anim_prev.set_rect_instant(
                     get_event(f'layout_win_{prev}_base_p1').value,
                     get_event(f'layout_win_{prev}_base_p2').value,
@@ -276,10 +270,8 @@ def _toggle_fullscreen_window(name: str):
         get_event('fullscreen_selection').value = new_sel
 
         if new_sel is not None:
-            print('new sel is not none')
             anim_new = get_animated_window(WINDOW_DEF_REFS[new_sel])
             if anim_new is not None:
-                print('anim new is not none')
                 anim_new.set_rect_instant(FULLSCREEN_P1, FULLSCREEN_P2, FULLSCREEN_PX1, FULLSCREEN_PX2)
     return _fn
 
