@@ -1,3 +1,6 @@
+import os
+from glob import glob
+
 from setuptools import find_packages, setup
 
 package_name = 'plex_sensors'
@@ -10,8 +13,9 @@ setup(
         ('share/ament_index/resource_index/packages',
             ['resource/' + package_name]),
         ('share/' + package_name, ['package.xml']),
+        (os.path.join('share', package_name, 'launch'), glob(os.path.join('launch', '*.py'))),
     ],
-    install_requires=['setuptools'],
+    install_requires=['setuptools', 'psutil'],
     zip_safe=True,
     maintainer='spearua',
     maintainer_email='nathanc54@shaw.ca',
@@ -24,6 +28,7 @@ setup(
     },
     entry_points={
         'console_scripts': [
+            'system_stats = plex_sensors.system_stats:main',
         ],
     },
 )
