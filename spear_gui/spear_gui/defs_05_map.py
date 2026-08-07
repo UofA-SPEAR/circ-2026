@@ -41,7 +41,7 @@ def dms_to_decimal(degrees: float, minutes: float, seconds: float, direction: st
     decimal = degrees + (minutes / 60.0) + (seconds / 3600.0)
     if direction.upper() in ['S', 'W']:
         decimal = -decimal
-    print(f'{degrees}°, {minutes}\', {seconds}" {direction} -> {round(decimal, 6)}')
+    # print(f'{degrees}°, {minutes}\', {seconds}" {direction} -> {round(decimal, 6)}')
     return round(decimal, 6)
 
 def render_map(map_id: int):
@@ -191,7 +191,7 @@ collapsed_px = [P(px1.x - half, px1.y), P(px1.x, px1.y - half), P(px1.x, px1.y -
 
 slider_def = SliderDef(
     event_out=get_event('map_zoom'),
-    min_val=0.1, max_val=4, step=0.05, decimals=2,
+    min_val=0.1, max_val=6.5, step=0.05, decimals=2,
 
     min_track_p=[P(p1.x, p1.y)] * 6, min_track_px=collapsed_px,
     max_track_p=track_p,             max_track_px=track_px,
@@ -242,7 +242,7 @@ slider_def = SliderDef(
         'released':  Phase([TextTween(px=P(0, -14), start=0, dur=0.3, ease=QEasingCurve.OutQuint)]),
     },),
     extra_text_defs=[
-        TextDef(p=P(p2.x, p2.y), px=P(px2.x, px2.y - 2), text='ZOOM', bold=True, font_size=30.0, fill_color=QColor(171, 151, 247, 150), h_align=1.0, v_align=1.0),
+        TextDef(p=P(p2.x, p2.y), px=P(px2.x, px2.y - 2), text='ZOOM', bold=True, font_size=30.0, fill_color=QColor(171, 151, 247, 80), h_align=1.0, v_align=1.0),
     ],
 )
 
@@ -433,15 +433,15 @@ def _spawn_marker_from_coords():
         lat = float(lat_raw.strip())
         lon = float(lon_raw.strip())
     except (TypeError, ValueError, AttributeError) as e:
-        print(f'[spawn_from_coords] invalid input — lat={lat_raw!r} lon={lon_raw!r} error={e}')
+        print(f'[defs_05_map] invalid input — lat={lat_raw!r} lon={lon_raw!r} error={e}')
         return
     if not (-90.0 <= lat <= 90.0):
-        print(f'[spawn_from_coords] lat={lat} out of valid range [-90, 90] — did you swap lat/lon?')
+        print(f'[defs_05_map] lat={lat} out of valid range [-90, 90] — did you swap lat/lon?')
         return
     if not (-180.0 <= lon <= 180.0):
-        print(f'[spawn_from_coords] lon={lon} out of valid range [-180, 180] — did you swap lat/lon?')
+        print(f'[defs_05_map] lon={lon} out of valid range [-180, 180] — did you swap lat/lon?')
         return
-    print(f'[spawn_from_coords] spawning at lat={lat} lon={lon}')
+    print(f'[defs_05_map] marker spawned at lat={lat} lon={lon}')
     get_event('spawn_marker_source').value = 'coords'
     get_event('spawn_marker').value = True
     get_event('clear_marker_coord_inputs').value = True
@@ -451,7 +451,7 @@ def _spawn_marker_from_coords():
 
 
 _route_last_point_px: Optional[Tuple[float, float]] = None
-ROUTE_POINT_THRESHOLD_PX = 2.0
+ROUTE_POINT_THRESHOLD_PX = 50.0
 
 def _register_route_point(obj_id, statics):
     global _route_last_point_px
@@ -759,7 +759,7 @@ map_image_window = WindowDef(
                 'open': Phase([RectTween(px1=get_event('map_image_px1'), px2=get_event('map_image_px2'), start=0.0, dur=0.0, ease=QEasingCurve.Linear)], update_retrigger=True)
             },
         ),
-        RectDef(p1=P(0, 0), p2=P(1, 1), fill_color=QColor(0, 0, 0, 127)),
+        RectDef(p1=P(0, 0), p2=P(1, 1), fill_color=QColor(0, 0, 0, 175)),
     ],
     # text_defs=[
     #     TextDef(p=P(0.5, 0.5), text='(<#>, <#>)', font_size=20, h_align=0, v_align=1, uniform_scale=False,
@@ -809,7 +809,8 @@ map_display_window = WindowDef(
         TextDef(p=P(0, 0.5), px=P(20, 0), font_size=20, h_align=0, text='W', uniform_scale=False),
         TextDef(p=P(1, 0.5), px=P(-20, 0), font_size=20, h_align=1, text='E', uniform_scale=False),
         TextDef(p=P(0, 1), px=P(2, -2), text='(<#>, <#>)', font_size=10, h_align=0, v_align=1, uniform_scale=False,
-            text_fn=lambda ctx: [f"{get_event('map_pos_x').value:.7f}", f"{get_event('map_pos_y').value:.7f}"],
+            text_fn=lambda ctx: ctx['chatter_msg']['latest']
+            # text_fn=lambda ctx: [f"{get_event('map_pos_x').value:.7f}", f"{get_event('map_pos_y').value:.7f}"],
         ),
     ],
     button_defs=[

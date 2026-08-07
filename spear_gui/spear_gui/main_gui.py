@@ -4,7 +4,7 @@ import random
 import sys
 import rclpy
 from rclpy.node import Node
-from std_msgs.msg import Float64
+from std_msgs.msg import Float64, String
 from PySide6.QtWidgets import QApplication, QWidget
 from PySide6.QtCore import Qt, QTimer
 from PySide6.QtGui import QPainter, QFontDatabase, QSurfaceFormat, QPixmap
@@ -37,6 +37,36 @@ from spear_gui.overlay_system import get_ordered_windows
 
 MAIN_WINDOW_DEFS = get_ordered_windows()
 
+# ──────────────────────── EXPORT DATA ──────────────────────────
+
+try:
+    from control_msgs.msg import DynamicJointState
+    _HAVE_CONTROL_MSGS = True
+except ModuleNotFoundError:
+    DynamicJointState = None
+    _HAVE_CONTROL_MSGS = False
+    print('[main_gui.py] control_msgs not installed — skipping /dynamic_joint_states configs. Install with: sudo apt install ros-$ROS_DISTRO-control-msgs')
+
+def _djs_field(joint_name: str, interface_name: str) -> Callable[[Any], Optional[float]]:
+    def _extractor(msg) -> Optional[float]:
+        for jn, iv in zip(msg.joint_names, msg.interface_values):
+            if jn != joint_name:
+                continue
+            for iface, val in zip(iv.interface_names, iv.values):
+                if iface == interface_name:
+                    return float(val)
+        return None   # field not present in this message — just skip the push
+    return _extractor
+
+_JOINT_STATE_INTERFACES = {
+    'joint_1': ['position', 'velocity', 'bus_voltage', 'current', 'velocity_demand', 'torque_demand', 'position_demand', 'touch_probe_status', 'digital_inputs', 'status_word', 'mode_of_operation', 'error_code'],
+    'joint_2': ['position', 'velocity', 'bus_voltage', 'current', 'velocity_demand', 'torque_demand', 'position_demand', 'touch_probe_status', 'digital_inputs', 'status_word', 'mode_of_operation', 'error_code'],
+    'joint_3': ['position', 'velocity', 'bus_voltage', 'current', 'velocity_demand', 'torque_demand', 'position_demand', 'touch_probe_status', 'digital_inputs', 'status_word', 'mode_of_operation', 'error_code'],
+    'joint_4': ['position', 'velocity', 'bus_voltage', 'current', 'velocity_demand', 'torque_demand', 'position_demand', 'touch_probe_status', 'digital_inputs', 'status_word', 'mode_of_operation', 'error_code'],
+    'joint_5': ['position', 'velocity', 'bus_voltage', 'current', 'velocity_demand', 'torque_demand', 'position_demand', 'touch_probe_status', 'digital_inputs', 'status_word', 'mode_of_operation', 'error_code'],
+    'joint_6': ['status_word', 'position', 'velocity'],
+}
+
 
 
 # ──────────────────────── Subscriptions ──────────────────────────
@@ -54,19 +84,25 @@ class SubscriptionManager:
     def __init__(self, node, configs: List[SubscriptionConfig]) -> None:
         self._channels: Dict[str, DataChannel] = {}
         self._subs = []
+        groups: Dict[tuple, List[SubscriptionConfig]] = {}
         for cfg in configs:
-            channel = DataChannel(cfg.channel_name, cfg.max_samples, cfg.unit)
-            self._channels[cfg.channel_name] = channel
-            def _make_callback(ch, ex):
+            self._channels[cfg.channel_name] = DataChannel(cfg.channel_name, cfg.max_samples, cfg.unit)
+            groups.setdefault((cfg.topic, cfg.msg_type), []).append(cfg)
+
+        for (topic, msg_type), group_cfgs in groups.items():
+            qos = group_cfgs[0].qos  # first config in the group wins; keep qos consistent per topic
+            def _make_callback(cfgs):
                 def _cb(msg):
-                    try:    ch.push(ex(msg))
-                    except Exception as e:
-                        node.get_logger().warn(f'extractor error on "{ch.name}": {e}')
+                    for cfg in cfgs:
+                        try:
+                            value = cfg.extractor(msg)
+                        except Exception as e:
+                            node.get_logger().warn(f'extractor error on "{cfg.channel_name}": {e}')
+                            continue
+                        if value is not None:
+                            self._channels[cfg.channel_name].push(value)
                 return _cb
-            sub = node.create_subscription(
-                cfg.msg_type, cfg.topic,
-                _make_callback(channel, cfg.extractor), cfg.qos,
-            )
+            sub = node.create_subscription(msg_type, topic, _make_callback(group_cfgs), qos)
             self._subs.append(sub)
 
     def channel(self, name: str) -> Optional[DataChannel]:
@@ -82,8 +118,14 @@ TEST_SUBSCRIPTION_CONFIGS = [
 ]
 
 ROS_SUBSCRIPTION_CONFIGS = [
-    SubscriptionConfig(topic='wheels/amps_wheel_1', channel_name='amps_wheel_1', msg_type=Float64, extractor=lambda msg: float(msg.data), max_samples=100, unit='A'),
+    SubscriptionConfig(topic='chatter', channel_name='chatter_msg', msg_type=String, extractor=lambda msg: msg.data, max_samples=100, unit='A'),
 ]
+if _HAVE_CONTROL_MSGS:
+    ROS_SUBSCRIPTION_CONFIGS += [
+        SubscriptionConfig(topic='/dynamic_joint_states', channel_name=f'{joint}_{iface}', msg_type=DynamicJointState, extractor=_djs_field(joint, iface), max_samples=100)
+        for joint, ifaces in _JOINT_STATE_INTERFACES.items()
+        for iface in ifaces
+    ]
 
 SUBSCRIPTION_CONFIGS = ((TEST_SUBSCRIPTION_CONFIGS if ENABLE_TEST_SUBSCRIPTIONS else []) + ROS_SUBSCRIPTION_CONFIGS)
 
@@ -358,17 +400,17 @@ def main():
                 path = os.path.join(font_dir, fname)
                 fid  = QFontDatabase.addApplicationFont(path)
                 if fid == -1:
-                    print(f'[load_fonts] failed to load: {fname}')
+                    print(f'[main_gui] failed to load: {fname}')
                 else:
                     families = QFontDatabase.applicationFontFamilies(fid)
-                    print(f'[load_fonts] loaded: {fname} -> {families}')
+                    # print(f'[main_gui] loaded: {fname} -> {families}')
 
     _this_dir = os.path.dirname(os.path.abspath(__file__))
-    print(f'[load_fonts] __file__ = {__file__}')
-    print(f'[load_fonts] resolved dir = {_this_dir}')
-    print(f'[load_fonts] dir exists = {os.path.isdir(_this_dir)}')
-    if os.path.isdir(_this_dir):
-        print(f'[load_fonts] contents = {os.listdir(_this_dir)}')
+    # print(f'[main_gui] __file__ = {__file__}')
+    # print(f'[main_gui] resolved dir = {_this_dir}')
+    # print(f'[main_gui] dir exists = {os.path.isdir(_this_dir)}')
+    # if os.path.isdir(_this_dir):
+    #     print(f'[main_gui] contents = {os.listdir(_this_dir)}')
     load_fonts(_this_dir)
 
     widget = MainOverlayWidget(node)
