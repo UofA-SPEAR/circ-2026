@@ -33,8 +33,6 @@ position_controller:
       # - joint_5
       # - joint_6
       - drive_1
-      - drive_2
-      - drive_3
 
 trajectory_controller:
   ros__parameters:
@@ -46,8 +44,6 @@ trajectory_controller:
       # - joint_5
       # - joint_6
       - drive_1
-      - drive_2
-      - drive_3
     command_interfaces:
       - position
       - velocity
@@ -68,8 +64,6 @@ velocity_controller:
       # - joint_5
       # - joint_6
       - drive_1
-      - drive_2
-      - drive_3
     action_monitor_rate: 1000.0
   
 
@@ -83,16 +77,12 @@ effort_controller:
       # - joint_5
       # - joint_6
       - drive_1
-      - drive_2
-      - drive_3
 
 control_word_controller:
   ros__parameters:
     joints:
       # - joint_6
       - drive_1
-      - drive_2
-      - drive_3
     interface_name: control_word
 
 
@@ -101,6 +91,4 @@ current_controller:
     joints:
       # - joint_6
       - drive_1
-      - drive_2
-      - drive_3
     interface_name: current

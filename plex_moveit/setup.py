@@ -34,6 +34,7 @@ setup(
             'gamepad_to_servo = plex_moveit.gamepad_to_servo:main',
             'keyboard_to_servo = plex_moveit.keyboard_to_servo:main',
             'damper = plex_moveit.damper:main',
+            'joy_to_velocity = plex_moveit.joy_to_velocity:main',
         ],
     },
 )

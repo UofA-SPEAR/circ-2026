@@ -26,28 +26,24 @@ controller_manager:
 position_controller:
   ros__parameters:
     joints:
-      # - joint_1
-      # - joint_2
-      # - joint_3
-      # - joint_4
-      # - joint_5
-      # - joint_6
-      - drive_1
-      - drive_2
-      - drive_3
+      - joint_1
+      - joint_2
+      - joint_3
+      - joint_4
+      - joint_5
+      - joint_6
+      # - drive_1
 
 trajectory_controller:
   ros__parameters:
     joints:
-      # - joint_1
-      # - joint_2
-      # - joint_3
-      # - joint_4
-      # - joint_5
-      # - joint_6
-      - drive_1
-      - drive_2
-      - drive_3
+      - joint_1
+      - joint_2
+      - joint_3
+      - joint_4
+      - joint_5
+      - joint_6
+      # - drive_1
     command_interfaces:
       - position
       - velocity
@@ -61,46 +57,38 @@ trajectory_controller:
 velocity_controller:
   ros__parameters:
     joints:
-      # - joint_1
-      # - joint_2
-      # - joint_3
-      # - joint_4
-      # - joint_5
-      # - joint_6
-      - drive_1
-      - drive_2
-      - drive_3
+      - joint_1
+      - joint_2
+      - joint_3
+      - joint_4
+      - joint_5
+      - joint_6
+      # - drive_1
     action_monitor_rate: 1000.0
   
 
 effort_controller:
   ros__parameters:
     joints:
-      # - joint_1
-      # - joint_2
-      # - joint_3
-      # - joint_4
-      # - joint_5
-      # - joint_6
-      - drive_1
-      - drive_2
-      - drive_3
+      - joint_1
+      - joint_2
+      - joint_3
+      - joint_4
+      - joint_5
+      - joint_6
+      # - drive_1
 
 control_word_controller:
   ros__parameters:
     joints:
-      # - joint_6
-      - drive_1
-      - drive_2
-      - drive_3
+      - joint_6
+      # - drive_1
     interface_name: control_word
 
 
 current_controller:
   ros__parameters:
     joints:
-      # - joint_6
-      - drive_1
-      - drive_2
-      - drive_3
+      - joint_6
+      # - drive_1
     interface_name: current
