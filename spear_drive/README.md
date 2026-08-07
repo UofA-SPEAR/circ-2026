@@ -2,8 +2,9 @@
 
 `spear_drive` is a self-contained ROS 2 package for the CIRC rover's six driven
 wheels, four steering actuators, relative steering encoders, motor-side wheel
-encoders, and optional IMU. It contains the controller, teleop, configuration,
-mock hardware, tests, and a Xacro macro for the ten drivetrain slaves.
+encoders, and the rover's ZED X IMU. It contains the controller, teleop,
+configuration, mock hardware, tests, and a Xacro macro for the ten drivetrain
+slaves.
 
 This review branch adds only `spear_drive`; it deliberately does not modify
 `plex_ethercat`, `plex_ros2_control`, or bringup packages. Live hardware must
@@ -48,7 +49,7 @@ the team merges the shared-master integration described below.
 | Interface | Purpose |
 |---|---|
 | `/spear_drive_controller/cmd_vel` (`TwistStamped`) | Rover linear and yaw command |
-| `/spear_drive_controller/imu` (`Imu`) | Optional yaw-rate feedback |
+| `/zed/zed_node/imu/data` (`Imu`) | ZED X yaw-rate feedback, parameterized with `imu_topic` |
 | `/spear_drive_controller/odom` (`Odometry`) | Encoder-based rover odometry |
 | `/spear_drive_controller/diagnostics` (`DiagnosticArray`) | Mode, health, current and freshness |
 | `/spear_drive_controller/zero_steering` (`Trigger`) | Capture straight relative-encoder zero |
@@ -78,9 +79,37 @@ longitudinal slip estimation later.
 - Degraded modes are bounded controller behaviors that still require deliberate
   hardware fault-injection testing before competition use.
 
-Set `imu_topic` to the rover IMU's `sensor_msgs/Imu` topic. Once that stream is
-verified, set `monitor_imu: true`; losing it will then select a reduced-speed
-`IMU_DEGRADED` mode rather than stopping the rover.
+## ZED X IMU
+
+The controller is configured to monitor the standard ZED ROS 2 wrapper topic
+`/zed/zed_node/imu/data` by default. The ZED wrapper constructs that name as
+`/<camera_name>/<node_name>/imu/data`; if either launch name changes, update
+`imu_topic` in `config/drive_controller.yaml` or remap it during system bringup.
+
+The existing `spear_gui` GStreamer camera sender does not publish
+`sensor_msgs/Imu`. A plugged-in camera is therefore not sufficient by itself:
+the ZED ROS 2 wrapper (or another node publishing the same message) must own the
+selected camera and publish its sensor stream. In the wrapper configuration,
+ensure `sensors.publish_imu` is enabled. Verify the live contract before loading
+the drive controller:
+
+```bash
+ros2 topic list | grep '/imu/data'
+ros2 topic info /zed/zed_node/imu/data --verbose
+ros2 topic hz /zed/zed_node/imu/data
+ros2 topic echo /zed/zed_node/imu/data --once
+```
+
+The message must be `sensor_msgs/msg/Imu`, its `angular_velocity.z` sign must be
+positive for a counter-clockwise rover yaw, and the camera must be rigidly
+mounted with its IMU Z axis aligned with `base_link` Z. Confirm that sign with
+the wheels off the ground before enabling yaw feedback. If the camera is mounted
+in another orientation, transform the IMU stream into `base_link` rather than
+silently changing the feedback sign in this controller.
+
+If the ZED process or camera disappears, the controller selects reduced-speed
+`IMU_DEGRADED` mode and continues encoder-only driving; it does not stop the
+rover. The current mode and `imu_fresh` flag are exposed in diagnostics.
 
 ## No hidden actuation switch
 

@@ -142,7 +142,7 @@ controller_interface::CallbackReturn SpearDriveController::on_init()
 
     auto_declare<double>("command_timeout", 0.30);
     auto_declare<double>("imu_timeout", 0.30);
-    auto_declare<bool>("monitor_imu", false);
+    auto_declare<bool>("monitor_imu", true);
     auto_declare<bool>("auto_zero_on_activate", true);
     auto_declare<double>("velocity_kp", 0.35);
     auto_declare<double>("velocity_ki", 0.0);
@@ -158,7 +158,7 @@ controller_interface::CallbackReturn SpearDriveController::on_init()
       "pose_covariance_diagonal", {0.04, 0.04, 1000000.0, 1000000.0, 1000000.0, 0.09});
     auto_declare<std::vector<double>>(
       "twist_covariance_diagonal", {0.04, 0.04, 1000000.0, 1000000.0, 1000000.0, 0.09});
-    auto_declare<std::string>("imu_topic", "~/imu");
+    auto_declare<std::string>("imu_topic", "/zed/zed_node/imu/data");
     auto_declare<std::string>("odom_frame", "odom");
     auto_declare<std::string>("base_frame", "base_link");
 

@@ -60,9 +60,10 @@ spear_drive_controller:
 
     command_timeout: 0.30
     imu_timeout: 0.30
-    # Set true after the final IMU topic is available; loss then enters IMU_DEGRADED, not stop.
-    monitor_imu: false
-    imu_topic: /spear_drive_controller/imu
+    # ZED ROS 2 wrapper default for camera_name:=zed and node_name:=zed_node.
+    # Loss of this stream enters IMU_DEGRADED; it does not stop encoder-only driving.
+    monitor_imu: true
+    imu_topic: /zed/zed_node/imu/data
     velocity_kp: 0.35
     velocity_ki: 0.0
     velocity_feedforward: 0.0

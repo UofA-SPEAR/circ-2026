@@ -85,7 +85,7 @@ private:
 
   double command_timeout_{0.30};
   double imu_timeout_{0.30};
-  bool monitor_imu_{false};
+  bool monitor_imu_{true};
   bool auto_zero_on_activate_{true};
   double velocity_kp_{0.35};
   double velocity_ki_{0.0};
@@ -99,7 +99,7 @@ private:
   double publish_rate_{20.0};
   std::array<double, 6> pose_covariance_diagonal_{};
   std::array<double, 6> twist_covariance_diagonal_{};
-  std::string imu_topic_{"~/imu"};
+  std::string imu_topic_{"/zed/zed_node/imu/data"};
   std::string odom_frame_{"odom"};
   std::string base_frame_{"base_link"};
   std::array<double, kDriveWheelCount> encoder_counts_per_motor_revolution_{};
