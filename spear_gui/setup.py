@@ -39,6 +39,8 @@ setup(
             'camera_manager = spear_gui.camera_manager:main',
             'camera_streamer = spear_gui.camera_streamer:main',
             'current_motor_vals_gui = spear_gui.current_motor_vals_gui:main',
+            'zedxone_streamer = spear_gui.zedxone_streamer:main',
+            'zed_streamer = spear_gui.zed_streamer:main',
         ],
     },
 )
