@@ -112,6 +112,7 @@ class SubscriptionManager:
         return {name: ch.snapshot() for name, ch in self._channels.items()}
 
 ENABLE_TEST_SUBSCRIPTIONS = True # <-- IMPORTANT! CHANGE TO FALSE WHEN DONE TESTING! MUST BE FALSE TO READ ROS2 SUBSCRIPTIONS!
+print('[main_gui] Using test subscriptions. Set ENABLE_TEST_SUBSCRIPTIONS to False if you intended to read ros2 subscriptions.')
 
 TEST_SUBSCRIPTION_CONFIGS = [
     SubscriptionConfig(topic=f'main/test_value{i}', channel_name=f'test_value{i}', max_samples=50) for i in range(1, 10)

@@ -62,9 +62,12 @@ background_window = WindowDef(p1=P(0.0, 0.0), p2=P(1.0, 1.0), polygon_defs = bac
 
 # ──────────────────────── SUBSCRIPTION VALUES ────────────────────────
 
-register_event(EventDef(name='startup_subscription_phase', value='waiting'))
-register_event(EventDef(name='startup_phase', value='waiting'))
-register_event(EventDef(name='startup_phase_flip', value='open'))
+# register_event(EventDef(name='startup_subscription_phase', value='waiting'))
+# register_event(EventDef(name='startup_phase', value='waiting'))
+# register_event(EventDef(name='startup_phase_flip', value='open'))
+register_event(EventDef(name='startup_subscription_phase', value='open'))
+register_event(EventDef(name='startup_phase', value='open'))
+register_event(EventDef(name='startup_phase_flip', value='close'))
 
 subscription_list = ['test_value1', 'test_value2', 'test_value3', 'test_value4', 'test_value5', 'test_value6', 'test_value7', 'test_value8', 'test_value9', 'test_value10']
 subscription_columns = 2

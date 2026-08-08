@@ -2664,6 +2664,7 @@ class SliderDef:
     max_val:   float = 1.0
     step:      float = 0.0
     decimals:  int   = 0
+    snap_points: Optional[List[float]] = None
 
     # track interpolation anchors
     min_track_p:  Optional[List[P]] = None
@@ -2831,6 +2832,12 @@ class SliderGroup:
 
     def _ratio(self) -> float:
         d = self.defn
+        if d.snap_points:
+            n = len(d.snap_points)
+            if n <= 1:
+                return 0.0
+            idx = min(range(n), key=lambda i: abs(d.snap_points[i] - self._cur_value))
+            return idx / (n - 1)
         if d.max_val == d.min_val:
             return 0.0
         return max(0.0, min(1.0, (self._cur_value - d.min_val) / (d.max_val - d.min_val)))
@@ -2851,6 +2858,15 @@ class SliderGroup:
             ratio = ((mx - ax) * dx + (my - ay) * dy) / seg_len_sq
             ratio = max(0.0, min(1.0, ratio))
         d = self.defn
+        if d.snap_points:
+            n = len(d.snap_points)
+            if n <= 1:
+                self._cur_value = d.snap_points[0] if n == 1 else self._cur_value
+                return
+            idx = round(ratio * (n - 1))
+            idx = max(0, min(n - 1, idx))
+            self._cur_value = d.snap_points[idx]
+            return
         lo, hi, step = d.min_val, d.max_val, d.step
         raw = lo + ratio * (hi - lo)
         if step > 0:
@@ -4255,7 +4271,7 @@ class GraphDef:
     bound_name_text:       bool              = True
     auto_adjust_name_pos:  bool              = True
     stack:           Any                     = False
-    update_interval: float                   = 0.0
+    update_interval: Any                     = 0.0
     hidden:          bool                    = False
     phase_override:  Optional[Any]           = None
     visible_threshold_x: float = 0.0
@@ -4302,6 +4318,7 @@ class AnimatedGraph:
         self._start_display_time:       float = 0.0
         self._end_display_time:         float = self._max_time_cached
         self._stack_cached:             bool  = False
+        self._update_interval_cached:  float = _resolve_numeric_value(defn.update_interval, 0.0)
 
         # ── open/close fade state ──────────────────────────────────
         self._base_phase:          str   = ''
@@ -4351,6 +4368,7 @@ class AnimatedGraph:
         self._start_display_time = s
         self._end_display_time   = e
         self._stack_cached = _resolve_bool_value(d.stack)
+        self._update_interval_cached = max(0.0, _resolve_numeric_value(d.update_interval, 0.0))
 
     def _time_to_x(self, abs_t: float, now: float, left: float, width: float) -> float:
         span = self._end_display_time - self._start_display_time
@@ -4587,7 +4605,7 @@ class AnimatedGraph:
             self._prune(st, now)
         if d.dynamic_scale != 0.0:
             self._update_dynamic_range(now)
-        if d.update_interval > 0.0 and now - self._last_update_time >= d.update_interval:
+        if self._update_interval_cached > 0.0 and now - self._last_update_time >= self._update_interval_cached:
             self._last_update_time = now
             for sd, st in zip(d.series, self._series):
                 if st.pending_values:
@@ -4606,7 +4624,7 @@ class AnimatedGraph:
                 try:    raw = sd.value_fn(ctx)
                 except: raw = None
                 if raw is not None:
-                    if d.update_interval > 0.0:
+                    if self._update_interval_cached > 0.0:
                         st.pending_values.append(float(raw))
                     else:
                         self._push_value(st, float(raw), now)
@@ -4626,7 +4644,7 @@ class AnimatedGraph:
                         st.tip_t0        = now
                     else:
                         new_vals = samples[len(st.last_data_fn_result):]
-                        if d.update_interval > 0.0:
+                        if self._update_interval_cached > 0.0:
                             st.pending_values.extend(float(v) for v in new_vals)
                         else:
                             for val in new_vals:
@@ -7378,7 +7396,7 @@ def _resolve_numeric_value(val, default: float = 0.0) -> float:
         try:
             v = val()
             return float(v) if isinstance(v, (int, float)) else default
-        except Exception:
+        except Exception: 
             return default
     if isinstance(val, (int, float)):
         return float(val)
