@@ -200,7 +200,7 @@
     <!--.........................drive.............................-->
 
 
-      <joint name="wheel_front_left_joint">
+      <joint name="drive_1">
         <command_interface name="control_word"/>
         <command_interface name="position"/>
         <command_interface name="velocity"/>
@@ -218,7 +218,7 @@
       </joint>
     </ros2_control>
 
-       <joint name="wheel_mid_left_joint">
+       <joint name="drive_2">
         <command_interface name="control_word"/>
         <command_interface name="position"/>
         <command_interface name="velocity"/>
@@ -236,7 +236,7 @@
       </joint>
     </ros2_control>
 
-       <joint name="wheel_rear_left_joint">
+       <joint name="drive_3">
         <command_interface name="control_word"/>
         <command_interface name="position"/>
         <command_interface name="velocity"/>
@@ -254,7 +254,7 @@
       </joint>
     </ros2_control>
 
-       <joint name="wheel_front_right_joint">
+       <joint name="drive_4">
         <command_interface name="control_word"/>
         <command_interface name="position"/>
         <command_interface name="velocity"/>
@@ -272,7 +272,7 @@
       </joint>
     </ros2_control>
 
-       <joint name="wheel_mid_right_joint">
+       <joint name="drive_5">
         <command_interface name="control_word"/>
         <command_interface name="position"/>
         <command_interface name="velocity"/>
@@ -290,7 +290,7 @@
       </joint>
     </ros2_control>
 
-       <joint name="wheel_rear_right_joint">
+       <joint name="drive_6">
         <command_interface name="control_word"/>
         <command_interface name="position"/>
         <command_interface name="velocity"/>

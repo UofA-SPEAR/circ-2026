@@ -5,90 +5,92 @@ controller_manager:
     joint_state_broadcaster:
       type: joint_state_broadcaster/JointStateBroadcaster
 
-
-
-
-
+    # steering
     position_controller:
       type: position_controllers/JointGroupPositionController
 
+    # arm
     velocity_controller:
       type: velocity_controllers/JointGroupVelocityController
 
+    # drive
     drive_controller:
       type: velocity_controllers/JointGroupVelocityController
 
+    # gripper
     gripper_controller:
        type: velocity_controllers/JointGroupVelocityController
 
-    effort_controller:
-      type: effort_controllers/JointGroupEffortController
-
+    # all spear devices
     control_word_controller:
       type: forward_command_controller/ForwardCommandController
 
     trajectory_controller:
       type: joint_trajectory_controller/JointTrajectoryController
 
+    effort_controller:
+      type: effort_controllers/JointGroupEffortController
+
+    # current_controller:
+    #   type: forward_command_controller/ForwardCommandController
+
 velocity_controller:
   ros__parameters:
     joints:
-      # - joint_1
-      # - joint_2
-      # - joint_3
-      # - joint_4
-      # - joint_5
-      # - joint_6
+      - joint_1
+      - joint_2
+      - joint_3
+      - joint_4
+      - joint_5
+      - joint_6
+    action_monitor_rate: 1000.0
+
+
+
+drive_controller:
+  ros__parameters:
+    joints:
       - drive_1
+      - drive_2
+      - drive_3
+      - drive_4
+      - drive_5
+      - drive_6
+    action_monitor_rate: 1000.0
+
+gripper_controller:
+  ros__parameters:
+    joints:
+      - joint_7
     action_monitor_rate: 1000.0
 
 position_controller:
   ros__parameters:
     joints:
-      # - joint_1
-      # - joint_2
-      # - joint_3
-      # - joint_4
-      # - joint_5
-      # - joint_6
-      - steer_front_left_joint
-      - steer_rear_left_joint
-      - steer_front_right_joint
-      - steer_rear_right_joint
-      # - drive_1
+      - steer_1
+      - steer_2
+      - steer_3
+      - steer_4
 
-drive_controller:
-  ros__parameters:
-    joints:
-      - wheel_front_left_joint
-      - wheel_mid_left_joint
-      - wheel_rear_left_joint
-      - wheel_front_right_joint
-      - wheel_mid_right_joint
-      - wheel_rear_right_joint
-    action_monitor_rate: 1000.0
-  
 effort_controller:
   ros__parameters:
     joints:
-      # - joint_1
-      # - joint_2
-      # - joint_3
-      # - joint_4
-      # - joint_5
-      # - joint_6
-      - drive_1
+      - joint_1
+      - joint_2
+      - joint_3
+      - joint_4
+      - joint_5
+      - joint_6
 
 trajectory_controller:
   ros__parameters:
     joints:
-      # - joint_1
-      # - joint_2
-      # - joint_3
-      # - joint_4
-      # - joint_5
-      # - joint_6
-      - drive_1
+      - joint_1
+      - joint_2
+      - joint_3
+      - joint_4
+      - joint_5
+      - joint_6
     command_interfaces:
       - position
       - velocity
@@ -102,8 +104,28 @@ trajectory_controller:
 control_word_controller:
   ros__parameters:
     joints:
-      # - joint_6
+      - joint_6
+      - joint_7
       - drive_1
+      - drive_2
+      - drive_3
+      - drive_4
+      - drive_5
+      - drive_6
+      - steer_1
+      - steer_2
+      - steer_3
+      - steer_4
     interface_name: control_word
 
-
+# current_controller:
+#   ros__parameters:
+#     joints:
+#       - joint_7
+#       - drive_1
+#       - drive_2
+#       - drive_3
+#       - drive_4
+#       - drive_5
+#       - drive_6
+#     interface_name: current

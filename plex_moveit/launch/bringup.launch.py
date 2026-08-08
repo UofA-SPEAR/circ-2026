@@ -107,10 +107,10 @@ def generate_launch_description():
 
 
     return LaunchDescription([
-        rviz_node,
+        # rviz_node,
         joy_node,
         gamepad_node,
-        damper_node,
+        # damper_node,
         # keyboard_node,
         servo_node,
         move_group,
