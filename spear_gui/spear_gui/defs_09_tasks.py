@@ -751,13 +751,14 @@ tasks_window = WindowDef(
         EventListener(value_fn=True, targets=[get_event('new_log')], passthrough=True, wait_for_updates=get_event('textbox_test_value')),
         EventListener(value_fn='pulse', targets=[get_event('task_window_pulse')], passthrough=True, wait_for_updates=lambda ctx: get_event('task_window').value),
         EventListener(value_fn=lambda ctx: get_event('task_window').value, targets=[get_event('task_window_text')], passthrough=True,),
-        EventListener(value_fn=lambda ctx: get_event('task_window').value, targets=[get_event('wire_window_phase')], conditions=[lambda v: v == '2. Heist Mission'], values=['open', 'close']),
-        EventListener(value_fn=lambda ctx: get_event('task_window').value, targets=[get_event('hardware_fault_phase')], conditions=[lambda v: v == '1. Snack Run'], values=['open', 'close']),
+        EventListener(value_fn=lambda ctx: (get_event('task_window').value, get_event('content_phase_task').value), targets=[get_event('wire_window_phase')], conditions=[lambda v: v[0] == '2. Heist Mission' and v[1] != 'close'], values=['open', 'close']),
+        EventListener(value_fn=lambda ctx: (get_event('task_window').value, get_event('content_phase_task').value), targets=[get_event('hardware_fault_phase')], conditions=[lambda v: v[0] == '1. Snack Run' and v[1] != 'close'], values=['open', 'close']),
     ],
     polygon_defs=[
-        PolygonDef(p=[P(1, 0.5), P(1, 0.5), P(1, 0.5), P(1, 0.5)], px=[P(-62, 0), P(-70, 0), P(-70, 0), P(-62, 0)], fill_color=QColor(255, 255, 255, 0), outline_width=2, closed=False, gradient=get_gradient('alt_color_outline'), phase_override=get_event('main_page'), phases={
+        PolygonDef(p=[P(1, 0.5), P(1, 0.5), P(1, 0.5), P(1, 0.5)], px=[P(-62, 0), P(-70, 0), P(-70, 0), P(-62, 0)], fill_color=QColor(255, 255, 255, 0), outline_width=2, closed=False, gradient=get_gradient('alt_color_outline'), phases={
             'open': Phase([PolygonTween(p=[P(1, 0), P(1, 0), P(1, 1), P(1, 1)], px=[P(-62, 25 - 8), P(-70, 25), P(-70, -25), P(-62, -25 + 8)], start=0.0, dur=0.5, ease=QEasingCurve.OutQuint),
-                            PolygonTween(p=[P(0, 0), P(0, 0), P(0, 1), P(0, 1)], px=[P(9, 25 - 8), P(1, 25), P(1, -25), P(9, -25 + 8)], start=0.5, dur=1.0, ease=QEasingCurve.OutQuint)])
+                            PolygonTween(p=[P(0, 0), P(0, 0), P(0, 1), P(0, 1)], px=[P(9, 25 - 8), P(1, 25), P(1, -25), P(9, -25 + 8)], start=0.5, dur=1.0, ease=QEasingCurve.OutQuint)]),
+            'close': Phase([PolygonTween(px=[P(-62, 0), P(-70, 0), P(-70, 0), P(-62, 0)], start=0, dur=0.5, ease=QEasingCurve.OutQuint)])
         },),
         RectDef(p1=P(0, 0), p2=P(0, 0), px1=P(1, 95 - 3), px2=P(700, 130 + 3), gradient=get_gradient('task_window_pulse')),
     ],

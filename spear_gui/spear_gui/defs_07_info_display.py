@@ -140,12 +140,12 @@ graph_series=[
         SeriesDef(value_fn=lambda ctx: ctx['test_value9']['latest'], name='value9', color=QColor(149, 224, 255, 255), outline_width=1.0, fill_opacity=0.08),
     ],
 ]
-graph_active =              [False, False, False, False, False, False]
+graph_hidden =              [True, True, True, True, True, True]
 graph_stack =               [False, False, True, True, True, True]
 graph_max_time =            [360, 10, 10, 10, 10, 10]
 graph_start_display_time =  [0, 0, 0, 0, 0, 0]
 graph_end_display_time =    [360, 10, 10, 10, 10, 10]
-graph_value_range =         [(0, 10), (0, 50), (0, 100), (0, 100), (0, 100), (0, 100)]
+graph_value_range =         [(0, 10), (45000, 50000), (0, 100), (0, 100), (0, 100), (0, 100)]
 graph_update_interval =     [5, 1, 1, 1, 1, 1]
 
 graph_text_defs_list = []
@@ -166,10 +166,11 @@ graph_names=[
 info_texts = []
 info_buttons = []
 info_sliders = []
+graph_sub_windows = []
 total_graphs = 6
 
 for i in range(total_graphs):
-    register_event(EventDef(name=f'graph_{i}_active',             value=graph_active[i]))
+    register_event(EventDef(name=f'graph_{i}_hidden',             value=graph_hidden[i]))
     register_event(EventDef(name=f'graph_{i}_max_time',           value=graph_max_time[i]))
     register_event(EventDef(name=f'graph_{i}_start_display_time', value=graph_start_display_time[i]))
     register_event(EventDef(name=f'graph_{i}_end_display_time',   value=graph_end_display_time[i]))
@@ -182,21 +183,32 @@ for i in range(total_graphs):
     section_w = available_x / total_graphs
     p_x1 = (edge_px + i * (section_w + gap_px)) / max_width
     p_x2 = (edge_px + i * (section_w + gap_px) + section_w) / max_width
-    text_p = P((p_x1 + p_x2) / 2, 0.1)
-    button_p = P((p_x1 + p_x2) / 2, 0.2)
+    text_p = P((p_x1 + p_x2) / 2, 0.2)
+    button_p = P((p_x1 + p_x2) / 2, 0.25)
     button_px1 = P(-20, -20)
     button_px2 = P(20, 20)
-    slider_p1 = P(p_x1, 0.3)
-    slider_p2 = P(p_x2, 0.3)
-    info_texts.append(TextDef(p=text_p, text=graph_names[i]))
-    info_buttons.append(ButtonDef(poly_def=RectDef(p1=button_p, p2=button_p, px1=button_px1, px2=button_px2, fill_color=QColor(171, 151, 247, 255)), event_out=get_event(f'graph_{i}_active'), action='cycle', event_delta=[True, False], hold_when_set=True))
-    info_sliders.append(make_slider(event_name=f'graph_{i}_max_time', p1=slider_p1, p2=slider_p2, px1=P(0, 0), px2=P(0, 0), half=3.0, min_val=10, max_val=1800, step=10))
-
-graph_sub_windows = []
-for i in range(6):
+    info_texts.append(TextDef(p=text_p, text=graph_names[i], font_size=16, h_align=0.5, v_align=0.5, char_display=0.0, sub_char_clip=True, phases={
+        'open':  Phase([TextTween(char_display=1.0, start=0, dur=1.0, ease=QEasingCurve.OutQuint)]),
+        'close': Phase([TextTween(char_display=0.0, start=0, dur=1.0, ease=QEasingCurve.OutQuint)]),
+    }))
+    info_texts.append(TextDef(p=button_p, px=P(0, 30), text='<#>', font_size=16, h_align=0.5, v_align=0.5, char_display=0.0, sub_char_clip=True, 
+        text_fn=lambda ctx: 'Active' if not get_event(f'graph_{i}_hidden').value else 'Inactive', phases={
+        'open':  Phase([TextTween(char_display=1.0, start=0, dur=1.0, ease=QEasingCurve.OutQuint)]),
+        'close': Phase([TextTween(char_display=0.0, start=0, dur=1.0, ease=QEasingCurve.OutQuint)]),
+    }))
+    info_buttons.append(ButtonDef(poly_def=RectDef(p1=button_p, p2=button_p, px1=button_px1, px2=button_px2, fill_color=QColor(171, 151, 247, 255)), event_out=get_event(f'graph_{i}_hidden'), action='cycle', event_delta=[True, False], hold_when_set=True))
+    # info_sliders.append(make_slider(event_name=f'graph_{i}_max_time',           p1=P(p_x1, 0.2), p2=P(p_x2, 0.2), px1=P(0, 0), px2=P(0, 0), half=3.0, min_val=10, max_val=1800, step=10, 
+    #     snap_points=[10, 20, 30, 45, 60, 90, 120, 180, 240, 300, 600, 900, 1200, 1800, 2400, 3000, 3600]))
+    # info_sliders.append(make_slider(event_name=f'graph_{i}_start_display_time', p1=P(p_x1, 0.3), p2=P(p_x2, 0.3), px1=P(0, 0), px2=P(0, 0), half=3.0, min_val=0, max_val=1790, step=10, 
+    #     snap_points=[0, 10, 20, 30, 45, 60, 90, 120, 180, 240, 300, 600, 900, 1200, 1800, 2400, 3000, 3600]))
+    info_sliders.append(make_slider(event_name=f'graph_{i}_end_display_time',   p1=P(p_x1, 0.4), p2=P(p_x2, 0.4), px1=P(0, 0), px2=P(0, 0), half=3.0, min_val=10, max_val=1800, step=10,
+        snap_points=[10, 20, 30, 45, 60, 90, 120, 180, 240, 300, 600, 900, 1200, 1800, 2400, 3000, 3600]))
+    info_sliders.append(make_slider(event_name=f'graph_{i}_update_interval',    p1=P(p_x1, 0.5), p2=P(p_x2, 0.5), px1=P(0, 0), px2=P(0, 0), half=3.0, min_val=0, max_val=30, step=1, decimals=2,
+        snap_points=[0, 0.05, 0.1, 0.15, 0.2, 0.25, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1, 1.5, 2, 3, 4, 5, 10, 15, 20, 25, 30, 60, 90, 120]))
     graph_sub_windows.append(
         WindowDef(
             p1=graph_points[i][0], p2=graph_points[i][1],
+            hidden_event=get_event(f'graph_{i}_hidden'),
             draggable=True, scalable=True, grid_snap_pixel=True, grid_snap_x=10, grid_snap_y=10,
             polygon_defs=[
                 RectDef(p1=P(0, 0), p2=P(1, 1), fill_color=QColor(0, 0, 0, 0), outline_color=QColor(255, 255, 255, 255), outline_width=2)
@@ -213,23 +225,23 @@ for i in range(6):
                 GraphDef(
                     p1=P(0, 0), p2=P(1, 1),
                     series =                graph_series[i],
-                    max_time =              graph_max_time[i],
-                    start_display_time =    graph_start_display_time[i],
-                    end_display_time =      graph_end_display_time[i],
+                    max_time =              lambda: get_event(f'graph_{i}_end_display_time').value, # lambda: get_event(f'graph_{i}_max_time'),
+                    start_display_time =    lambda: get_event(f'graph_{i}_start_display_time').value,
+                    end_display_time =      lambda: get_event(f'graph_{i}_end_display_time').value,
                     value_range=            graph_value_range[i],
                     value_color=QColor(255, 255, 255, 255),
                     ease_dur=0.9,
-                    ease_type=QEasingCurve.OutQuint,
+                    ease_type=QEasingCurve.OutQuint,    
                     dynamic_scale=5.0,
                     show_minmax = True,
                     show_step = True,
-                    step_count = lambda: int(get_event('graph_steps').value),
+                    step_count =            lambda: int(get_event('graph_steps').value),
                     label_align='left',
                     size_minmax = 8.0,
                     size_step = 8.0,
                     size_name = 8.0,
                     stack=graph_stack[i],
-                    update_interval=graph_update_interval[i],
+                    update_interval =       lambda: get_event(f'graph_{i}_update_interval').value, 
                 )
             ]
         )
@@ -413,6 +425,7 @@ WINDOW_DEFS = []
 WINDOW_DEFS.append(info_window)
 
 register_windows(WINDOW_LAYER, WINDOW_DEFS)
+register_event(EventDef(name='close_on_launch', value='open'))
 
 WINDOW_DEFS=[
     WindowDef(
@@ -422,14 +435,34 @@ WINDOW_DEFS=[
 
         ],
         text_defs=[
-            TextDef(p=P(0.5, 0), px=P(0, 40), text='INFO DISPLAY SETTINGS', font_size=30, h_align=0.5, v_align=0.5, char_display=0.0, sub_char_clip=True, phases={
+            TextDef(p=P(0.5, 0), px=P(0, 50), text='INFO DISPLAY SETTINGS', fill_color=QColor(255, 255, 255, 170), font_family='Oxanium SemiBold', font_size=40, h_align=0.5, v_align=0.5, char_display=0.0, sub_char_clip=True, phases={
                 'open':  Phase([TextTween(char_display=1.0, start=0, dur=1.0, ease=QEasingCurve.OutQuint)]),
                 'close': Phase([TextTween(char_display=0.0, start=0, dur=1.0, ease=QEasingCurve.OutQuint)]),
-            })
+            }),
+            TextDef(p=P(0.5, 0.4), px=P(0, 30), text='MAX DISPLAY TIME [s]', fill_color=QColor(255, 255, 255, 170), font_family='Oxanium SemiBold', font_size=20, h_align=0.5, v_align=0.5, char_display=0.0, sub_char_clip=True, phases={
+                'open':  Phase([TextTween(char_display=1.0, start=0, dur=1.0, ease=QEasingCurve.OutQuint)]),
+                'close': Phase([TextTween(char_display=0.0, start=0, dur=1.0, ease=QEasingCurve.OutQuint)]),
+            }),
+            TextDef(p=P(0.5, 0.5), px=P(0, 30), text='UPDATE INTERVAL [s]', fill_color=QColor(255, 255, 255, 170), font_family='Oxanium SemiBold', font_size=20, h_align=0.5, v_align=0.5, char_display=0.0, sub_char_clip=True, phases={
+                'open':  Phase([TextTween(char_display=1.0, start=0, dur=1.0, ease=QEasingCurve.OutQuint)]),
+                'close': Phase([TextTween(char_display=0.0, start=0, dur=1.0, ease=QEasingCurve.OutQuint)]),
+            }),
         ] + info_texts,
         button_defs=info_buttons,
         slider_defs=info_sliders,
 
+    ),
+    WindowDef(
+        p1=P(0.0, 0.0), p2=P(1.0, 1.0),
+        phase_event=get_event('close_on_launch'),
+        listener_defs=[
+            EventListener(value_fn='close', targets=[get_event('close_on_launch')], passthrough=True),
+        ],
+        polygon_defs=[
+            RectDef(p1=P(0, 0), p2=P(1, 1), fill_color=QColor(0, 0, 0, 255), phases={
+                'close': Phase([RectTween(fill_color=QColor(0, 0, 0, 0), start=1, dur=1, ease=QEasingCurve.Linear)])
+            })
+        ],
     )
 ]
 

@@ -112,7 +112,7 @@ from spear_gui.overlay_system import (
 )
 
 
-def make_slider(event_name = '', p1=P(0.6, 1), p2=P(1, 1), px1=P(0, 0), px2=P(0, 0), half=3.0, min_val=0, max_val=1, step=0, decimals=0):
+def make_slider(event_name = '', p1=P(0.6, 1), p2=P(1, 1), px1=P(0, 0), px2=P(0, 0), half=3.0, min_val=0, max_val=1, step=0, decimals=0, snap_points=None):
     def _hex_track_px(px1: P, px2: P, half: float) -> List[P]:
         cy = px1.y
         return [
@@ -144,7 +144,7 @@ def make_slider(event_name = '', p1=P(0.6, 1), p2=P(1, 1), px1=P(0, 0), px2=P(0,
 
     slider_def = SliderDef(
         event_out=get_event(event_name),
-        min_val=min_val, max_val=max_val, step=step, decimals=decimals,
+        min_val=min_val, max_val=max_val, step=step, decimals=decimals, snap_points=snap_points,
 
         min_track_p=[P(p1.x, p1.y)] * 6, min_track_px=collapsed_px,
         max_track_p=track_p,             max_track_px=track_px,
