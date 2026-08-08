@@ -1,0 +1,359 @@
+<?xml version="1.0"?>
+<robot xmlns:xacro="http://www.ros.org/wiki/xacro">
+  <!-- ZeroErr eRob 5-axis EtherCAT ros2_control description -->
+  <xacro:macro name="plex_ethercat">
+    <ros2_control name="plex_ethercat" type="system">
+      <hardware>
+        <plugin>ethercat_driver/EthercatDriver</plugin>
+        <param name="master_id">0</param>
+        <param name="control_frequency">1000</param>
+      </hardware>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    <!--.........................arm.............................-->
+      <joint name="joint_1">
+        <state_interface name="position"/>
+        <state_interface name="velocity"/>
+        <state_interface name="bus_voltage"/>
+        <command_interface name="position"/>
+        <command_interface name="velocity"/>
+        <state_interface name="current"/>
+        <state_interface name="velocity_demand"/>
+        <state_interface name="torque_demand"/>
+        <state_interface name="position_demand"/>
+        <state_interface name="touch_probe_status"/>
+        <state_interface name="digital_inputs"/>
+        <state_interface name="status_word"/>
+        <state_interface name="mode_of_operation"/>
+        <state_interface name="error_code"/>
+          <ec_module name="ZeroErr_joint_1">
+          <plugin>ethercat_generic_plugins/EcCiA402Drive</plugin>
+          <param name="alias">0</param>
+          <param name="position">0</param>
+          <param name="mode_of_operation">9</param>
+          <param name="slave_config">$(find plex_ethercat)/config/zeroerr_config.yaml</param>
+        </ec_module>
+      </joint>
+      <joint name="joint_2">
+        <state_interface name="position"/>
+        <state_interface name="velocity"/>
+        <state_interface name="bus_voltage"/>
+        <command_interface name="position"/>
+        <command_interface name="velocity"/>
+        <state_interface name="current"/>
+        <state_interface name="velocity_demand"/>
+        <state_interface name="torque_demand"/>
+        <state_interface name="position_demand"/>
+        <state_interface name="touch_probe_status"/>
+        <state_interface name="digital_inputs"/>
+        <state_interface name="status_word"/>
+        <state_interface name="mode_of_operation"/>
+        <state_interface name="error_code"/>
+          <ec_module name="ZeroErr_joint_2">
+          <plugin>ethercat_generic_plugins/EcCiA402Drive</plugin>
+          <param name="alias">0</param>
+          <param name="position">1</param>
+          <param name="mode_of_operation">9</param>
+          <param name="slave_config">$(find plex_ethercat)/config/zeroerr_config.yaml</param>
+        </ec_module>
+      </joint>
+      <joint name="joint_3">
+        <state_interface name="position"/>
+        <state_interface name="velocity"/>
+        <state_interface name="bus_voltage"/>
+        <command_interface name="position"/>
+        <command_interface name="velocity"/>
+        <state_interface name="current"/>
+        <state_interface name="velocity_demand"/>
+        <state_interface name="torque_demand"/>
+        <state_interface name="position_demand"/>
+        <state_interface name="touch_probe_status"/>
+        <state_interface name="digital_inputs"/>
+        <state_interface name="status_word"/>
+        <state_interface name="mode_of_operation"/>
+        <state_interface name="error_code"/>
+        <ec_module name="ZeroErr_joint_3">
+          <plugin>ethercat_generic_plugins/EcCiA402Drive</plugin>
+          <param name="alias">0</param>
+          <param name="position">2</param>
+          <param name="mode_of_operation">9</param>
+          <param name="slave_config">$(find plex_ethercat)/config/zeroerr_config.yaml</param>
+        </ec_module>
+      </joint>
+      <joint name="joint_4">
+        <state_interface name="position"/>
+        <state_interface name="velocity"/>
+        <state_interface name="bus_voltage"/>
+        <command_interface name="position"/>
+        <command_interface name="velocity"/>
+        <state_interface name="current"/>
+        <state_interface name="velocity_demand"/>
+        <state_interface name="torque_demand"/>
+        <state_interface name="position_demand"/>
+        <state_interface name="touch_probe_status"/>
+        <state_interface name="digital_inputs"/>
+        <state_interface name="status_word"/>
+        <state_interface name="mode_of_operation"/>
+        <state_interface name="error_code"/>
+        <ec_module name="ZeroErr_joint_4">
+          <plugin>ethercat_generic_plugins/EcCiA402Drive</plugin>
+          <param name="alias">0</param>
+          <param name="position">3</param>
+          <param name="mode_of_operation">9</param>
+          <param name="slave_config">$(find plex_ethercat)/config/zeroerr_config.yaml</param>
+        </ec_module>
+      </joint>
+      <joint name="joint_5">
+        <state_interface name="position"/>
+        <state_interface name="velocity"/>
+        <state_interface name="bus_voltage"/>
+        <command_interface name="position"/>
+        <command_interface name="velocity"/>
+        <state_interface name="current"/>
+        <state_interface name="velocity_demand"/>
+        <state_interface name="torque_demand"/>
+        <state_interface name="position_demand"/>
+        <state_interface name="touch_probe_status"/>
+        <state_interface name="digital_inputs"/>
+        <state_interface name="status_word"/>
+        <state_interface name="mode_of_operation"/>
+        <state_interface name="error_code"/>
+        <ec_module name="ZeroErr_joint_5">
+          <plugin>ethercat_generic_plugins/EcCiA402Drive</plugin>
+          <param name="alias">0</param>
+          <param name="position">4</param>
+          <param name="mode_of_operation">9</param>
+          <param name="slave_config">$(find plex_ethercat)/config/zeroerr_config.yaml</param>
+        </ec_module>
+      </joint>
+      <joint name="joint_6">
+        <command_interface name="control_word"/>
+        <command_interface name="position"/>
+        <command_interface name="velocity"/>
+        <state_interface name="status_word"/>
+        <state_interface name="position"/>
+        <state_interface name="velocity"/>
+        <ec_module name="Stepper_joint_6">
+          <plugin>ethercat_generic_plugins/GenericEcSlave</plugin>
+          <param name="alias">0</param>
+          <param name="position">5</param>
+          <param name="slave_config">$(find plex_ethercat)/config/stepper_config.yaml</param>
+        </ec_module>
+      </joint>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    <!--.........................drive.............................-->
+
+
+      <joint name="wheel_front_left_joint">
+        <command_interface name="control_word"/>
+        <command_interface name="position"/>
+        <command_interface name="velocity"/>
+        <state_interface name="status_word"/>
+        <state_interface name="position"/>
+        <state_interface name="velocity"/>
+        <ec_module name="motor_1">
+          <plugin>ethercat_generic_plugins/GenericEcSlave</plugin>
+          <param name="alias">0</param>
+          <param name="position">0</param>
+          <param name="slave_config">$(find plex_ethercat)/config/dc_config.yaml</param>
+        </ec_module>
+      </joint>
+    </ros2_control>
+
+       <joint name="wheel_mid_left_joint">
+        <command_interface name="control_word"/>
+        <command_interface name="position"/>
+        <command_interface name="velocity"/>
+        <state_interface name="status_word"/>
+        <state_interface name="position"/>
+        <state_interface name="velocity"/>
+        <ec_module name="motor_2">
+          <plugin>ethercat_generic_plugins/GenericEcSlave</plugin>
+          <param name="alias">0</param>
+          <param name="position">0</param>
+          <param name="slave_config">$(find plex_ethercat)/config/dc_config.yaml</param>
+        </ec_module>
+      </joint>
+    </ros2_control>
+
+       <joint name="wheel_rear_left_joint">
+        <command_interface name="control_word"/>
+        <command_interface name="position"/>
+        <command_interface name="velocity"/>
+        <state_interface name="status_word"/>
+        <state_interface name="position"/>
+        <state_interface name="velocity"/>
+        <ec_module name="motor_3">
+          <plugin>ethercat_generic_plugins/GenericEcSlave</plugin>
+          <param name="alias">0</param>
+          <param name="position">0</param>
+          <param name="slave_config">$(find plex_ethercat)/config/dc_config.yaml</param>
+        </ec_module>
+      </joint>
+    </ros2_control>
+
+       <joint name="wheel_front_right_joint">
+        <command_interface name="control_word"/>
+        <command_interface name="position"/>
+        <command_interface name="velocity"/>
+        <state_interface name="status_word"/>
+        <state_interface name="position"/>
+        <state_interface name="velocity"/>
+        <ec_module name="motor_4">
+          <plugin>ethercat_generic_plugins/GenericEcSlave</plugin>
+          <param name="alias">0</param>
+          <param name="position">0</param>
+          <param name="slave_config">$(find plex_ethercat)/config/dc_config.yaml</param>
+        </ec_module>
+      </joint>
+    </ros2_control>
+
+       <joint name="wheel_mid_right_joint">
+        <command_interface name="control_word"/>
+        <command_interface name="position"/>
+        <command_interface name="velocity"/>
+        <state_interface name="status_word"/>
+        <state_interface name="position"/>
+        <state_interface name="velocity"/>
+        <ec_module name="motor_5">
+          <plugin>ethercat_generic_plugins/GenericEcSlave</plugin>
+          <param name="alias">0</param>
+          <param name="position">0</param>
+          <param name="slave_config">$(find plex_ethercat)/config/dc_config.yaml</param>
+        </ec_module>
+      </joint>
+    </ros2_control>
+
+       <joint name="wheel_rear_right_joint">
+        <command_interface name="control_word"/>
+        <command_interface name="position"/>
+        <command_interface name="velocity"/>
+        <state_interface name="status_word"/>
+        <state_interface name="position"/>
+        <state_interface name="velocity"/>
+        <ec_module name="motor_6">
+          <plugin>ethercat_generic_plugins/GenericEcSlave</plugin>
+          <param name="alias">0</param>
+          <param name="position">0</param>
+          <param name="slave_config">$(find plex_ethercat)/config/dc_config.yaml</param>
+        </ec_module>
+      </joint>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<!--.........................steering.............................-->
+
+      <joint name="steer_front_left_joint">
+        <command_interface name="control_word"/>
+        <command_interface name="position"/>
+        <command_interface name="velocity"/>
+        <state_interface name="status_word"/>
+        <state_interface name="position"/>
+        <state_interface name="velocity"/>
+        <ec_module name="steer_1">
+          <plugin>ethercat_generic_plugins/GenericEcSlave</plugin>
+          <param name="alias">0</param>
+          <param name="position">0</param>
+          <param name="slave_config">$(find plex_ethercat)/config/dc_config.yaml</param>
+        </ec_module>
+      </joint>
+
+       <joint name="steer_rear_left_joint">
+        <command_interface name="control_word"/>
+        <command_interface name="position"/>
+        <command_interface name="velocity"/>
+        <state_interface name="status_word"/>
+        <state_interface name="position"/>
+        <state_interface name="velocity"/>
+        <ec_module name="steer_2">
+          <plugin>ethercat_generic_plugins/GenericEcSlave</plugin>
+          <param name="alias">0</param>
+          <param name="position">0</param>
+          <param name="slave_config">$(find plex_ethercat)/config/dc_config.yaml</param>
+        </ec_module>
+      </joint>
+
+      <joint name="steer_front_right_joint">
+        <command_interface name="control_word"/>
+        <command_interface name="position"/>
+        <command_interface name="velocity"/>
+        <state_interface name="status_word"/>
+        <state_interface name="position"/>
+        <state_interface name="velocity"/>
+        <ec_module name="steer_3">
+          <plugin>ethercat_generic_plugins/GenericEcSlave</plugin>
+          <param name="alias">0</param>
+          <param name="position">0</param>
+          <param name="slave_config">$(find plex_ethercat)/config/dc_config.yaml</param>
+        </ec_module>
+      </joint>
+
+      <joint name="steer_rear_right_joint">
+        <command_interface name="control_word"/>
+        <command_interface name="position"/>
+        <command_interface name="velocity"/>
+        <state_interface name="status_word"/>
+        <state_interface name="position"/>
+        <state_interface name="velocity"/>
+        <ec_module name="steer_4">
+          <plugin>ethercat_generic_plugins/GenericEcSlave</plugin>
+          <param name="alias">0</param>
+          <param name="position">0</param>
+          <param name="slave_config">$(find plex_ethercat)/config/dc_config.yaml</param>
+        </ec_module>
+      </joint>
+
+    </ros2_control>
+  </xacro:macro>
+</robot>

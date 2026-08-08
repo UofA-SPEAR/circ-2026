@@ -95,7 +95,7 @@ def generate_launch_description():
     )
     
     start_servo = TimerAction(
-        period=10.0,  # wait 15 seconds for servo_node to finish starting up
+        period=10.0,  # wait 10 seconds for servo_node to finish starting up
         actions=[
             ExecuteProcess(
                 cmd=['ros2', 'service', 'call', '/servo_node/start_servo', 
