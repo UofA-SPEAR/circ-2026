@@ -5,8 +5,9 @@ controller_manager:
     joint_state_broadcaster:
       type: joint_state_broadcaster/JointStateBroadcaster
 
-    trajectory_controller:
-      type: joint_trajectory_controller/JointTrajectoryController
+
+
+
 
     position_controller:
       type: position_controllers/JointGroupPositionController
@@ -25,6 +26,9 @@ controller_manager:
 
     control_word_controller:
       type: forward_command_controller/ForwardCommandController
+
+    trajectory_controller:
+      type: joint_trajectory_controller/JointTrajectoryController
 
 velocity_controller:
   ros__parameters:
