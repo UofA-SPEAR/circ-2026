@@ -4,18 +4,19 @@ import random
 import sys
 import rclpy
 from rclpy.node import Node
-from std_msgs.msg import Float64
+from std_msgs.msg import Float64, String
 from PySide6.QtWidgets import QApplication, QWidget
 from PySide6.QtCore import Qt, QTimer
-from PySide6.QtGui import QPainter, QFontDatabase, QSurfaceFormat
+from PySide6.QtGui import QPainter, QFontDatabase, QSurfaceFormat, QPixmap
 from PySide6.QtOpenGLWidgets import QOpenGLWidget
 from dataclasses import dataclass, field
 
 import time
-from typing import Dict, Any
+from typing import Dict, Any, Callable, List, Optional
+from rclpy.qos import QoSProfile, ReliabilityPolicy, HistoryPolicy
 
 from spear_gui.overlay_system import (
-    expand_defs, _gradients, _pending_pulse_resets, set_true_screen_size,
+    expand_defs, _gradients, _pending_pulse_resets, set_true_screen_size, reset_window_screen_offset,
     AnimatedPolygon, AnimatedText, AnimatedGraph, AnimatedPie, AnimatedWindow, DataChannel,
     SYS_MOUSE_ABS_X, SYS_MOUSE_ABS_Y,
 )
@@ -36,6 +37,36 @@ from spear_gui.overlay_system import get_ordered_windows
 
 MAIN_WINDOW_DEFS = get_ordered_windows()
 
+# ──────────────────────── EXPORT DATA ──────────────────────────
+
+try:
+    from control_msgs.msg import DynamicJointState
+    _HAVE_CONTROL_MSGS = True
+except ModuleNotFoundError:
+    DynamicJointState = None
+    _HAVE_CONTROL_MSGS = False
+    print('[main_gui.py] control_msgs not installed — skipping /dynamic_joint_states configs. Install with: sudo apt install ros-$ROS_DISTRO-control-msgs')
+
+def _djs_field(joint_name: str, interface_name: str) -> Callable[[Any], Optional[float]]:
+    def _extractor(msg) -> Optional[float]:
+        for jn, iv in zip(msg.joint_names, msg.interface_values):
+            if jn != joint_name:
+                continue
+            for iface, val in zip(iv.interface_names, iv.values):
+                if iface == interface_name:
+                    return float(val)
+        return None   # field not present in this message — just skip the push
+    return _extractor
+
+_JOINT_STATE_INTERFACES = {
+    'joint_1': ['position', 'velocity', 'bus_voltage', 'current', 'velocity_demand', 'torque_demand', 'position_demand', 'touch_probe_status', 'digital_inputs', 'status_word', 'mode_of_operation', 'error_code'],
+    'joint_2': ['position', 'velocity', 'bus_voltage', 'current', 'velocity_demand', 'torque_demand', 'position_demand', 'touch_probe_status', 'digital_inputs', 'status_word', 'mode_of_operation', 'error_code'],
+    'joint_3': ['position', 'velocity', 'bus_voltage', 'current', 'velocity_demand', 'torque_demand', 'position_demand', 'touch_probe_status', 'digital_inputs', 'status_word', 'mode_of_operation', 'error_code'],
+    'joint_4': ['position', 'velocity', 'bus_voltage', 'current', 'velocity_demand', 'torque_demand', 'position_demand', 'touch_probe_status', 'digital_inputs', 'status_word', 'mode_of_operation', 'error_code'],
+    'joint_5': ['position', 'velocity', 'bus_voltage', 'current', 'velocity_demand', 'torque_demand', 'position_demand', 'touch_probe_status', 'digital_inputs', 'status_word', 'mode_of_operation', 'error_code'],
+    'joint_6': ['status_word', 'position', 'velocity'],
+}
+
 
 
 # ──────────────────────── Subscriptions ──────────────────────────
@@ -47,26 +78,31 @@ class SubscriptionConfig:
     extractor:    Callable[[Any], float]      = field(default=lambda msg: float(msg.data))
     max_samples:  int                         = 100
     unit:         str                         = ''
-    qos:          int                         = 10
-
+    qos:          Any                         = 10
 
 class SubscriptionManager:
     def __init__(self, node, configs: List[SubscriptionConfig]) -> None:
         self._channels: Dict[str, DataChannel] = {}
         self._subs = []
+        groups: Dict[tuple, List[SubscriptionConfig]] = {}
         for cfg in configs:
-            channel = DataChannel(cfg.channel_name, cfg.max_samples, cfg.unit)
-            self._channels[cfg.channel_name] = channel
-            def _make_callback(ch, ex):
+            self._channels[cfg.channel_name] = DataChannel(cfg.channel_name, cfg.max_samples, cfg.unit)
+            groups.setdefault((cfg.topic, cfg.msg_type), []).append(cfg)
+
+        for (topic, msg_type), group_cfgs in groups.items():
+            qos = group_cfgs[0].qos  # first config in the group wins; keep qos consistent per topic
+            def _make_callback(cfgs):
                 def _cb(msg):
-                    try:    ch.push(ex(msg))
-                    except Exception as e:
-                        node.get_logger().warn(f'extractor error on "{ch.name}": {e}')
+                    for cfg in cfgs:
+                        try:
+                            value = cfg.extractor(msg)
+                        except Exception as e:
+                            node.get_logger().warn(f'extractor error on "{cfg.channel_name}": {e}')
+                            continue
+                        if value is not None:
+                            self._channels[cfg.channel_name].push(value)
                 return _cb
-            sub = node.create_subscription(
-                cfg.msg_type, cfg.topic,
-                _make_callback(channel, cfg.extractor), cfg.qos,
-            )
+            sub = node.create_subscription(msg_type, topic, _make_callback(group_cfgs), qos)
             self._subs.append(sub)
 
     def channel(self, name: str) -> Optional[DataChannel]:
@@ -75,20 +111,32 @@ class SubscriptionManager:
     def context(self) -> Dict[str, Dict[str, Any]]:
         return {name: ch.snapshot() for name, ch in self._channels.items()}
 
-SUBSCRIPTION_CONFIGS = [
-    SubscriptionConfig(topic=f'main/test_value{i}', channel_name=f'test_value{i}', max_samples=50)
-    for i in range(1, 10)
+ENABLE_TEST_SUBSCRIPTIONS = True # <-- IMPORTANT! CHANGE TO FALSE WHEN DONE TESTING! MUST BE FALSE TO READ ROS2 SUBSCRIPTIONS!
+print('[main_gui] Using test subscriptions. Set ENABLE_TEST_SUBSCRIPTIONS to False if you intended to read ros2 subscriptions.')
+
+TEST_SUBSCRIPTION_CONFIGS = [
+    SubscriptionConfig(topic=f'main/test_value{i}', channel_name=f'test_value{i}', max_samples=50) for i in range(1, 10)
 ]
+
+ROS_SUBSCRIPTION_CONFIGS = [
+    SubscriptionConfig(topic='chatter', channel_name='chatter_msg', msg_type=String, extractor=lambda msg: msg.data, max_samples=100, unit='A'),
+]
+if _HAVE_CONTROL_MSGS:
+    ROS_SUBSCRIPTION_CONFIGS += [
+        SubscriptionConfig(topic='/dynamic_joint_states', channel_name=f'{joint}_{iface}', msg_type=DynamicJointState, extractor=_djs_field(joint, iface), max_samples=100)
+        for joint, ifaces in _JOINT_STATE_INTERFACES.items()
+        for iface in ifaces
+    ]
+
+SUBSCRIPTION_CONFIGS = ((TEST_SUBSCRIPTION_CONFIGS if ENABLE_TEST_SUBSCRIPTIONS else []) + ROS_SUBSCRIPTION_CONFIGS)
 
 
 class MainNode(Node):
     def __init__(self):
         super().__init__('main_overlay_node')
-        self.test_publishers = [
-            self.create_publisher(Float64, f'main/test_value{i+1}', 10)
-            for i in range(9)
-        ]
-        self.create_timer(0.5, self._publish_demo)
+        if ENABLE_TEST_SUBSCRIPTIONS:
+            self.test_publishers = [self.create_publisher(Float64, f'main/test_value{i+1}', 10) for i in range(9)]
+            self.create_timer(0.5, self._publish_demo)
         self.sub_manager = SubscriptionManager(self, SUBSCRIPTION_CONFIGS)
 
     def _publish_demo(self):
@@ -174,7 +222,7 @@ class MainOverlayWidget(QOpenGLWidget):
         if phase_def is not None and getattr(phase_def, 'update_retrigger', False):
             return False
         for btn in win._buttons:
-            if btn.defn.phase_override is not None:          # <-- added
+            if btn.defn.phase_override is not None:
                 return False
             if btn._cur_phase not in ('', 'open', 'close', 'unhover') or btn._hovered or btn._pressed or btn._held:
                 return False
@@ -197,7 +245,7 @@ class MainOverlayWidget(QOpenGLWidget):
             if tb.defn.poly_def.gradient is not None:
                 return False
         for p in win._polygons:
-            if p.defn.phase_override is not None:             # <-- added
+            if p.defn.phase_override is not None:
                 return False
             if not p.phase_done():
                 return False
@@ -206,7 +254,7 @@ class MainOverlayWidget(QOpenGLWidget):
             if p.defn.gradient is not None:
                 return False
         for t in win._texts:
-            if t.defn.phase_override is not None:             # <-- added
+            if t.defn.phase_override is not None:
                 return False
             if not t.phase_done():
                 return False
@@ -222,8 +270,6 @@ class MainOverlayWidget(QOpenGLWidget):
         return True
 
     def _draw_with_cache(self, painter, win, w, h, ctx):
-        from PySide6.QtGui import QPixmap
-        from spear_gui.overlay_system import reset_window_screen_offset  # or import at top
         wid = id(win.defn)
         if self._is_fully_static(win):
             if wid not in self._win_cache:
@@ -340,7 +386,7 @@ def main():
     node = MainNode()
 
     fmt = QSurfaceFormat()
-    fmt.setSamples(4)   # try 8 if your GPU/driver supports it and you want smoother edges
+    fmt.setSamples(4)
     QSurfaceFormat.setDefaultFormat(fmt)
 
     app = QApplication(sys.argv)
@@ -355,18 +401,17 @@ def main():
                 path = os.path.join(font_dir, fname)
                 fid  = QFontDatabase.addApplicationFont(path)
                 if fid == -1:
-                    print(f'[load_fonts] failed to load: {fname}')
+                    print(f'[main_gui] failed to load: {fname}')
                 else:
                     families = QFontDatabase.applicationFontFamilies(fid)
-                    print(f'[load_fonts] loaded: {fname} -> {families}')
+                    # print(f'[main_gui] loaded: {fname} -> {families}')
 
-    # resolve relative to this file's own location, not the process cwd
     _this_dir = os.path.dirname(os.path.abspath(__file__))
-    print(f'[load_fonts] __file__ = {__file__}')
-    print(f'[load_fonts] resolved dir = {_this_dir}')
-    print(f'[load_fonts] dir exists = {os.path.isdir(_this_dir)}')
-    if os.path.isdir(_this_dir):
-        print(f'[load_fonts] contents = {os.listdir(_this_dir)}')
+    # print(f'[main_gui] __file__ = {__file__}')
+    # print(f'[main_gui] resolved dir = {_this_dir}')
+    # print(f'[main_gui] dir exists = {os.path.isdir(_this_dir)}')
+    # if os.path.isdir(_this_dir):
+    #     print(f'[main_gui] contents = {os.listdir(_this_dir)}')
     load_fonts(_this_dir)
 
     widget = MainOverlayWidget(node)

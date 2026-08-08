@@ -26,6 +26,15 @@ sudo apt install gstreamer1.0-plugins-good gstreamer1.0-plugins-bad gstreamer1.0
 
 
 
+#plex_sensors (system stats node)
+pip install psutil
+# GPU/power/engine metrics on the Jetson need jetson-stats (jtop); reboot after install.
+# The node runs fine without it (CPU/RAM/network only) and can be disabled with enable_jtop:=false.
+sudo pip3 install -U jetson-stats
+
+
+
+
 #restarting zed daemon for when camera ports are claimed
 sudo systemctl restart nvargus-daemon
 sudo systemctl restart zed_x_daemon

@@ -38,7 +38,7 @@ class damper(Node):
         out = TwistStamped
         out.header.frame_id = msg.header.frame_id
         
-        out.twist.linear.x = self.x_vel_current
+        out.twist.linear.x = self.x_vel_current     # testing limiter on x-dir velocity only 
         out.twist.linear.y = msg.twist.linear.y
         out.twist.linear.z = msg.twist.linear.z
         out.twist.angular.z = msg.twist.angular.x

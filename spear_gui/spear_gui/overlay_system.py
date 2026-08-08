@@ -399,7 +399,7 @@ class TextDef:
     phases:              Optional[Dict[str, Phase]]     = None
     bold:                bool                           = False
     italic:              bool                           = False
-    font_family:         str                            = 'Oxanium SemiBold'
+    font_family:         str                            = 'Oxanium'
     h_align:             float                          = 0.5
     v_align:             float                          = 0.5
     uniform_scale:       bool                           = False
@@ -564,7 +564,7 @@ def DataTable(
     unit_gap:       float                    = 4.0,
     fill_color:     QColor                   = None,
     font_size:      float                    = 10.0,
-    font_family:    str                      = 'Oxanium SemiBold',
+    font_family:    str                      = 'Oxanium',
     bold:           bool                     = False,
     italic:         bool                     = False,
     uniform_scale:  bool                     = True,
@@ -2664,6 +2664,7 @@ class SliderDef:
     max_val:   float = 1.0
     step:      float = 0.0
     decimals:  int   = 0
+    snap_points: Optional[List[float]] = None
 
     # track interpolation anchors
     min_track_p:  Optional[List[P]] = None
@@ -2696,7 +2697,7 @@ def BasicSliderDef(
     event_out: Optional[EventDef] = None,
     min_val: float = 0.0, max_val: float = 1.0, step: float = 0.0, decimals: int = 0,
     label: str = '', unit: str = '',
-    font_family: str = 'Oxanium SemiBold',
+    font_family: str = 'Oxanium',
     track_h: float = 4.0, knob_size: float = 10.0,
     track_idle: QColor = QColor(255, 255, 255, 40),
     fill_idle: QColor = QColor(200, 220, 255, 60),
@@ -2831,6 +2832,12 @@ class SliderGroup:
 
     def _ratio(self) -> float:
         d = self.defn
+        if d.snap_points:
+            n = len(d.snap_points)
+            if n <= 1:
+                return 0.0
+            idx = min(range(n), key=lambda i: abs(d.snap_points[i] - self._cur_value))
+            return idx / (n - 1)
         if d.max_val == d.min_val:
             return 0.0
         return max(0.0, min(1.0, (self._cur_value - d.min_val) / (d.max_val - d.min_val)))
@@ -2851,6 +2858,15 @@ class SliderGroup:
             ratio = ((mx - ax) * dx + (my - ay) * dy) / seg_len_sq
             ratio = max(0.0, min(1.0, ratio))
         d = self.defn
+        if d.snap_points:
+            n = len(d.snap_points)
+            if n <= 1:
+                self._cur_value = d.snap_points[0] if n == 1 else self._cur_value
+                return
+            idx = round(ratio * (n - 1))
+            idx = max(0, min(n - 1, idx))
+            self._cur_value = d.snap_points[idx]
+            return
         lo, hi, step = d.min_val, d.max_val, d.step
         raw = lo + ratio * (hi - lo)
         if step > 0:
@@ -4249,8 +4265,13 @@ class GraphDef:
     size_step:       float                   = 9.0
     size_name:       float                   = 9.0
     label_align:     str                     = 'right'
+    name_align:            str               = 'left'
+    font_family:           str               = 'Oxanium SemiBold'
+    bound_min_max_text:    bool              = True
+    bound_name_text:       bool              = True
+    auto_adjust_name_pos:  bool              = True
     stack:           Any                     = False
-    update_interval: float                   = 0.0
+    update_interval: Any                     = 0.0
     hidden:          bool                    = False
     phase_override:  Optional[Any]           = None
     visible_threshold_x: float = 0.0
@@ -4297,6 +4318,7 @@ class AnimatedGraph:
         self._start_display_time:       float = 0.0
         self._end_display_time:         float = self._max_time_cached
         self._stack_cached:             bool  = False
+        self._update_interval_cached:  float = _resolve_numeric_value(defn.update_interval, 0.0)
 
         # ── open/close fade state ──────────────────────────────────
         self._base_phase:          str   = ''
@@ -4346,6 +4368,7 @@ class AnimatedGraph:
         self._start_display_time = s
         self._end_display_time   = e
         self._stack_cached = _resolve_bool_value(d.stack)
+        self._update_interval_cached = max(0.0, _resolve_numeric_value(d.update_interval, 0.0))
 
     def _time_to_x(self, abs_t: float, now: float, left: float, width: float) -> float:
         span = self._end_display_time - self._start_display_time
@@ -4582,7 +4605,7 @@ class AnimatedGraph:
             self._prune(st, now)
         if d.dynamic_scale != 0.0:
             self._update_dynamic_range(now)
-        if d.update_interval > 0.0 and now - self._last_update_time >= d.update_interval:
+        if self._update_interval_cached > 0.0 and now - self._last_update_time >= self._update_interval_cached:
             self._last_update_time = now
             for sd, st in zip(d.series, self._series):
                 if st.pending_values:
@@ -4601,7 +4624,7 @@ class AnimatedGraph:
                 try:    raw = sd.value_fn(ctx)
                 except: raw = None
                 if raw is not None:
-                    if d.update_interval > 0.0:
+                    if self._update_interval_cached > 0.0:
                         st.pending_values.append(float(raw))
                     else:
                         self._push_value(st, float(raw), now)
@@ -4621,7 +4644,7 @@ class AnimatedGraph:
                         st.tip_t0        = now
                     else:
                         new_vals = samples[len(st.last_data_fn_result):]
-                        if d.update_interval > 0.0:
+                        if self._update_interval_cached > 0.0:
                             st.pending_values.extend(float(v) for v in new_vals)
                         else:
                             for val in new_vals:
@@ -4669,53 +4692,97 @@ class AnimatedGraph:
 
         def _make_label_font(font_size: float):
             f = QFont()
+            f.setFamily(d.font_family)
             f.setPointSizeF(max(0.5, font_size))
             return f, QFontMetrics(f)
 
-        def _draw_right(text: str, font_size: float, y_center: float) -> None:
+        def _draw_at(text: str, font_size: float, y_center: float, align: str, bound: Optional[str]) -> None:
             f, fm = _make_label_font(font_size)
-            x = int(rx - 4 - fm.horizontalAdvance(text))
-            y = int(y_center + fm.ascent() * 0.5 - fm.descent() * 0.5)
+            if bound == 'below':      # entire text must sit below y_center (top of text at y_center)
+                y = int(y_center + fm.ascent())
+            elif bound == 'above':    # entire text must sit above y_center (bottom of text at y_center)
+                y = int(y_center - fm.descent())
+            else:
+                y = int(y_center + fm.ascent() * 0.5 - fm.descent() * 0.5)
+            x = int(rx - 4 - fm.horizontalAdvance(text)) if align == 'right' else int(rx + 4)
             painter.setFont(f)
             painter.setPen(_label_color())
             painter.drawText(x, y, text)
             painter.setPen(Qt.NoPen)
 
-        def _draw_left(text: str, font_size: float, y_center: float) -> None:
-            f, fm = _make_label_font(font_size)
-            x = int(rx + 4)
-            y = int(y_center + fm.ascent() * 0.5 - fm.descent() * 0.5)
-            painter.setFont(f)
-            painter.setPen(_label_color())
-            painter.drawText(x, y, text)
-            painter.setPen(Qt.NoPen)
-
-        _draw = _draw_right if d.label_align == 'right' else _draw_left
+        align = d.label_align
 
         if show_minmax:
-            _draw(_fmt(hi), size_minmax, ry)
-            _draw(_fmt(lo), size_minmax, ry + rh)
+            _draw_at(_fmt(hi), size_minmax, ry,      align, 'below' if d.bound_min_max_text else None)
+            _draw_at(_fmt(lo), size_minmax, ry + rh,  align, 'above' if d.bound_min_max_text else None)
 
         if show_step and step_count > 0:
             for i in range(1, step_count + 1):
                 ratio = i / (step_count + 1)
-                _draw(_fmt(lo + ratio * (hi - lo)), size_step,
-                      ry + rh * (1.0 - ratio))
-    
-    def _draw_series_names(self, painter: QPainter, d: 'GraphDef', tip_points: List[Optional[QPointF]], alpha_mult: float) -> None:
-        for sd, tip_pt in zip(d.series, tip_points):
-            if not sd.name or tip_pt is None:
-                continue
+                _draw_at(_fmt(lo + ratio * (hi - lo)), size_step, ry + rh * (1.0 - ratio), align, None)
+
+    def _draw_series_names(self, painter: QPainter, d: 'GraphDef', tip_points: List[Optional[QPointF]], alpha_mult: float, ry: float, rh: float) -> None:
+        f = QFont()
+        f.setFamily(d.font_family)
+        f.setPointSizeF(max(0.5, d.size_name))
+        fm = QFontMetrics(f)
+        label_height = fm.height()
+        half_h = (fm.ascent() + fm.descent()) / 2.0
+
+        entries = [(i, sd, tp) for i, (sd, tp) in enumerate(zip(d.series, tip_points)) if sd.name and tp is not None]
+        if not entries:
+            return
+
+        min_y = ry + half_h
+        max_y = ry + rh - half_h
+        bounds_valid = d.bound_name_text and min_y <= max_y
+
+        def _clamp(v: float) -> float:
+            return max(min_y, min(max_y, v))
+
+        if d.auto_adjust_name_pos and len(entries) > 1:
+            order = sorted(range(len(entries)), key=lambda k: entries[k][2].y())
+            desired = [entries[k][2].y() for k in order]
+            if bounds_valid:
+                desired = [_clamp(v) for v in desired]
+
+            adjusted = self._declutter_positions(desired, label_height * 1.1)
+
+            if bounds_valid and adjusted:
+                lo_over = min_y - adjusted[0]
+                hi_over = adjusted[-1] - max_y
+                if lo_over > 0 and hi_over > 0:
+                    shift = (lo_over - hi_over) / 2.0   # can't fully fit either side — split the difference
+                elif lo_over > 0:
+                    shift = lo_over
+                elif hi_over > 0:
+                    shift = -hi_over
+                else:
+                    shift = 0.0
+                if shift != 0.0:
+                    adjusted = [v + shift for v in adjusted]
+                adjusted = [_clamp(v) for v in adjusted]
+
+            y_for_entry = {}
+            for pos_in_order, k in enumerate(order):
+                y_for_entry[k] = adjusted[pos_in_order]
+        else:
+            y_for_entry = {k: entries[k][2].y() for k in range(len(entries))}
+            if bounds_valid:
+                y_for_entry = {k: _clamp(v) for k, v in y_for_entry.items()}
+
+        painter.setFont(f)
+        for k, (si, sd, tip_pt) in enumerate(entries):
             color = self._fade_color(sd.color, alpha_mult)
-            f = QFont()
-            f.setPointSizeF(max(0.5, d.size_name))
-            fm = QFontMetrics(f)
-            painter.setFont(f)
+            label_y = y_for_entry[k]
+            ly = int(label_y + fm.ascent() * 0.5 - fm.descent() * 0.5)
+            if d.name_align == 'left':
+                lx = int(tip_pt.x() - 4 - fm.horizontalAdvance(sd.name))
+            else:
+                lx = int(tip_pt.x() + 4)
             painter.setPen(color)
-            lx = int(tip_pt.x() + 4)
-            ly = int(tip_pt.y() + fm.ascent() * 0.5 - fm.descent() * 0.5)
             painter.drawText(lx, ly, sd.name)
-            painter.setPen(Qt.NoPen)
+        painter.setPen(Qt.NoPen)
 
     def draw(self, painter: QPainter, widget_w: int, widget_h: int, ctx: Any = None, cam_w: int = MONITOR_RESOLUTIONS[0][0], cam_h: int = MONITOR_RESOLUTIONS[0][1]) -> None:
         if self.hidden:
@@ -4790,7 +4857,33 @@ class AnimatedGraph:
 
         painter.restore()
         self._draw_labels(painter, rx, ry, rw, rh, alpha_mult)
-        self._draw_series_names(painter, d, tip_points, alpha_mult)
+        self._draw_series_names(painter, d, tip_points, alpha_mult, ry, rh)
+    
+    def _declutter_positions(self, desired: List[float], min_gap: float) -> List[float]:
+        n = len(desired)
+        if n == 0:
+            return []
+        stack = [{'sum': d, 'count': 1} for d in desired]
+        i = 1
+        while i < len(stack):
+            c1, c2 = stack[i - 1], stack[i]
+            avg1 = c1['sum'] / c1['count']
+            avg2 = c2['sum'] / c2['count']
+            required = min_gap * (c1['count'] + c2['count']) / 2.0
+            if avg2 - avg1 < required:
+                merged = {'sum': c1['sum'] + c2['sum'], 'count': c1['count'] + c2['count']}
+                stack[i - 1:i + 1] = [merged]
+                i = max(1, i - 1)
+            else:
+                i += 1
+        positions: List[float] = []
+        for cluster in stack:
+            avg = cluster['sum'] / cluster['count']
+            k = cluster['count']
+            start = avg - min_gap * (k - 1) / 2.0
+            for j in range(k):
+                positions.append(start + j * min_gap)
+        return positions
 
 # ──────────────────────── PIE DEF ────────────────────────
 
@@ -6228,10 +6321,6 @@ class AnimatedWindow:
         self._s_p2  = self._cur_p2
         self._s_px1 = self._cur_px1
         self._s_px2 = self._cur_px2
-        print(self._s_p1)
-        print(self._s_p2)
-        print(self._s_px1)
-        print(self._s_px2)
         
 
     def _on_spawn_trigger(self, value) -> None:
@@ -6964,27 +7053,31 @@ def get_animated_window(defn: 'WindowDef') -> Optional['AnimatedWindow']:
 
 # ──────────────────────── DATA CHANNEL ────────────────────────
 
+def _is_numeric(v: Any) -> bool:
+    return isinstance(v, (int, float)) and not isinstance(v, bool)
+
+
 class DataChannel:
     def __init__(self, name: str, max_samples: int = 100, unit: str = '') -> None:
         self.name        = name
         self.max_samples = max_samples
         self.unit        = unit
         self._lock   = threading.Lock()
-        self._buffer: collections.deque[float] = collections.deque(maxlen=max_samples)
+        self._buffer: collections.deque[Any] = collections.deque(maxlen=max_samples)
         self._push_count = 0
 
-    def push(self, value: float) -> None:
+    def push(self, value: Any) -> None:
         with self._lock:
             self._buffer.append(value)
             self._push_count += 1
 
     @property
-    def latest(self) -> Optional[float]:
+    def latest(self) -> Optional[Any]:
         with self._lock:
             return self._buffer[-1] if self._buffer else None
 
     @property
-    def samples(self) -> List[float]:
+    def samples(self) -> List[Any]:
         with self._lock:
             return list(self._buffer)
 
@@ -6995,26 +7088,31 @@ class DataChannel:
 
     def average(self) -> Optional[float]:
         with self._lock:
-            data = list(self._buffer)
+            data = [v for v in self._buffer if _is_numeric(v)]
         return statistics.mean(data) if data else None
 
     def minimum(self) -> Optional[float]:
         with self._lock:
-            return min(self._buffer) if self._buffer else None
+            data = [v for v in self._buffer if _is_numeric(v)]
+        return min(data) if data else None
 
     def maximum(self) -> Optional[float]:
         with self._lock:
-            return max(self._buffer) if self._buffer else None
+            data = [v for v in self._buffer if _is_numeric(v)]
+        return max(data) if data else None
 
     def delta(self) -> Optional[float]:
         with self._lock:
             if len(self._buffer) < 2:
                 return None
-            return self._buffer[-1] - self._buffer[-2]
+            a, b = self._buffer[-2], self._buffer[-1]
+        if not (_is_numeric(a) and _is_numeric(b)):
+            return None
+        return b - a
 
     def trend(self) -> Optional[float]:
         with self._lock:
-            data = list(self._buffer)
+            data = [v for v in self._buffer if _is_numeric(v)]
         n = len(data)
         if n < 2:
             return None
@@ -7026,21 +7124,30 @@ class DataChannel:
         return num / den if den else 0.0
 
     def snapshot(self) -> Dict[str, Any]:
-        data = self.samples
-        n    = len(data)
-        avg  = statistics.mean(data) if data else None
-        mn   = min(data)             if data else None
-        mx   = max(data)             if data else None
-        dlt  = (data[-1] - data[-2]) if n >= 2 else None
-        lat  = data[-1]              if data else None
-        if n >= 2:
-            x_bar = (n - 1) / 2.0
+        raw     = self.samples
+        numeric = [v for v in raw if _is_numeric(v)]
+        n_raw   = len(raw)
+        n_num   = len(numeric)
+
+        lat = raw[-1] if raw else None
+        avg = statistics.mean(numeric) if numeric else None
+        mn  = min(numeric)             if numeric else None
+        mx  = max(numeric)             if numeric else None
+
+        if n_raw >= 2 and _is_numeric(raw[-1]) and _is_numeric(raw[-2]):
+            dlt = raw[-1] - raw[-2]
+        else:
+            dlt = None
+
+        if n_num >= 2:
+            x_bar = (n_num - 1) / 2.0
             y_bar = avg
-            num   = sum((x - x_bar) * (y - y_bar) for x, y in enumerate(data))
-            den   = sum((x - x_bar) ** 2 for x in range(n))
+            num   = sum((x - x_bar) * (y - y_bar) for x, y in enumerate(numeric))
+            den   = sum((x - x_bar) ** 2 for x in range(n_num))
             slope = num / den if den else 0.0
         else:
             slope = None
+
         return {
             'latest':  lat,
             'average': avg,
@@ -7048,8 +7155,8 @@ class DataChannel:
             'maximum': mx,
             'delta':   dlt,
             'trend':   slope,
-            'samples': data,
-            'count':   n,
+            'samples': raw,
+            'count':   n_raw,
             'push_count': self._push_count,
             'unit':    self.unit,
         }
@@ -7289,7 +7396,7 @@ def _resolve_numeric_value(val, default: float = 0.0) -> float:
         try:
             v = val()
             return float(v) if isinstance(v, (int, float)) else default
-        except Exception:
+        except Exception: 
             return default
     if isinstance(val, (int, float)):
         return float(val)
