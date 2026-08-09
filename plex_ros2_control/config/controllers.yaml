@@ -2,29 +2,42 @@ controller_manager:
   ros__parameters:
     update_rate: 1000  # Hz
 
-    joint_state_broadcaster:
+    jsb:
       type: joint_state_broadcaster/JointStateBroadcaster
 
-    trajectory_controller:
-      type: joint_trajectory_controller/JointTrajectoryController
+    jsb_gripper:
+      type: joint_state_broadcaster/JointStateBroadcaster
 
-    position_controller:
-      type: position_controllers/JointGroupPositionController
+    jsb_drive:
+      type: joint_state_broadcaster/JointStateBroadcaster
 
+    jsb_steer:
+      type: joint_state_broadcaster/JointStateBroadcaster
+
+    # arm
     velocity_controller:
       type: velocity_controllers/JointGroupVelocityController
+        
+    # steer
+    steer_position_controller:
+      type: position_controllers/JointGroupPositionController
 
-    effort_controller:
-      type: effort_controllers/JointGroupEffortController
-
-    control_word_controller:
+    # drive
+    drive_velocity_controller:
+      type: velocity_controllers/JointGroupVelocityController
+    
+    # gripper
+    gripper_current_controller:
       type: forward_command_controller/ForwardCommandController
 
-    current_controller:
-      type: forward_command_controller/ForwardCommandController
 
-position_controller:
+
+
+
+
+jsb:
   ros__parameters:
+    use_local_topics: false
     joints:
       - joint_1
       - joint_2
@@ -32,27 +45,45 @@ position_controller:
       - joint_4
       - joint_5
       - joint_6
-      # - drive_1
+    interfaces:
+      - position
+      - velocity
 
-trajectory_controller:
+
+jsb_gripper:
   ros__parameters:
+    use_local_topics: true
     joints:
-      - joint_1
-      - joint_2
-      - joint_3
-      - joint_4
-      - joint_5
-      - joint_6
-      # - drive_1
-    command_interfaces:
+      - joint_7
+    interfaces:
+      - position
+
+jsb_drive:
+  ros__parameters:
+    use_local_topics: false
+    joints:
+      - drive_fl
+      - drive_fr
+      - drive_ml
+      - drive_mr
+      - drive_bl
+      - drive_br
+    interfaces:
       - position
       - velocity
-    state_interfaces:
+
+jsb_steer:
+  ros__parameters:
+    use_local_topics: false
+    joints:
+      - steer_fl
+      - steer_fr
+      - steer_bl
+      - steer_br
+    interfaces:
       - position
       - velocity
-    start_with_holding: true
-    set_last_command_interface_value_as_state_on_activation: true
-    action_monitor_rate: 1000.0
+
 
 velocity_controller:
   ros__parameters:
@@ -63,32 +94,32 @@ velocity_controller:
       - joint_4
       - joint_5
       - joint_6
-      # - drive_1
     action_monitor_rate: 1000.0
-  
 
-effort_controller:
+
+drive_velocity_controller:
   ros__parameters:
     joints:
-      - joint_1
-      - joint_2
-      - joint_3
-      - joint_4
-      - joint_5
-      - joint_6
-      # - drive_1
+      - drive_fl
+      - drive_fr
+      - drive_ml
+      - drive_mr
+      - drive_bl
+      - drive_br
+    action_monitor_rate: 1000.0
 
-control_word_controller:
+
+steer_position_controller:
   ros__parameters:
     joints:
-      - joint_6
-      # - drive_1
-    interface_name: control_word
+      - steer_fl
+      - steer_fr
+      - steer_bl
+      - steer_br
 
 
-current_controller:
+gripper_current_controller:
   ros__parameters:
     joints:
-      - joint_6
-      # - drive_1
+      - joint_7
     interface_name: current

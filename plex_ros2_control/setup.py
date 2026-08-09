@@ -28,6 +28,7 @@ setup(
     },
     entry_points={
         'console_scripts': [
+            'drive_teleop = plex_ros2_control.drive_teleop:main',
         ],
     },
 )
