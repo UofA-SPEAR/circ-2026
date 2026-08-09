@@ -8,11 +8,17 @@ controller_manager:
     jsb_gripper:
       type: joint_state_broadcaster/JointStateBroadcaster
 
+    jsb_drive:
+      type: joint_state_broadcaster/JointStateBroadcaster
+
+    jsb_steer:
+      type: joint_state_broadcaster/JointStateBroadcaster
+
     # arm
     velocity_controller:
       type: velocity_controllers/JointGroupVelocityController
         
-    # steering
+    # steer
     steer_position_controller:
       type: position_controllers/JointGroupPositionController
 
@@ -51,6 +57,32 @@ jsb_gripper:
       - joint_7
     interfaces:
       - position
+
+jsb_drive:
+  ros__parameters:
+    use_local_topics: false
+    joints:
+      - drive_fl
+      - drive_fr
+      - drive_ml
+      - drive_mr
+      - drive_bl
+      - drive_br
+    interfaces:
+      - position
+      - velocity
+
+jsb_steer:
+  ros__parameters:
+    use_local_topics: false
+    joints:
+      - steer_fl
+      - steer_fr
+      - steer_bl
+      - steer_br
+    interfaces:
+      - position
+      - velocity
 
 
 velocity_controller:

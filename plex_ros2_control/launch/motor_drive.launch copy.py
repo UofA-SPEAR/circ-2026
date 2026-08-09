@@ -83,16 +83,26 @@ def generate_launch_description():
         arguments=["jsb_gripper", "-c", "/controller_manager"],
     )
 
+    jsb_drive_spawner = Node(
+        package="controller_manager",
+        executable="spawner",
+        arguments=["jsb_drive_spawner", "-c", "/controller_manager"],)
+
+    jsb_steer_spawner = Node(
+        package="controller_manager",
+        executable="spawner",
+        arguments=["jsb_steer_spawner", "-c", "/controller_manager"],)
+
     trajectory_controller_spawner = Node(
         package="controller_manager",
         executable="spawner",
         arguments=["trajectory_controller", "-c", "/controller_manager", "--inactive"],
     )
 
-    steering_controller_spawner = Node(
+    steer_position_controller_spawner = Node(
         package="controller_manager",
         executable="spawner",
-        arguments=["steering_controller", "-c", "/controller_manager"],
+        arguments=["steer_position_controller", "-c", "/controller_manager"],
     )
 
     velocity_controller_spawner = Node(
@@ -101,10 +111,10 @@ def generate_launch_description():
         arguments=["velocity_controller", "-c", "/controller_manager"],
     )
 
-    drive_controller_spawner = Node(
+    drive_velocity_controller_spawner = Node(
         package="controller_manager",
         executable="spawner",
-        arguments=["drive_controller", "-c", "/controller_manager"],
+        arguments=["drive_velocity_controller", "-c", "/controller_manager"],
     )
 
     gripper_current_controller_spawner = Node(
@@ -134,16 +144,23 @@ def generate_launch_description():
     nodes = [
         control_node,
         robot_state_pub_node,
+
         jsb_spawner,
         jsb_gripper_spawner,
-        # trajectory_controller_spawner,
-        # steering_controller_spawner,
+        jsb_drive_spawner,
+        # jsb_steer_spawner,
+
+        
+
+        # steer_position_controller_spawner,  # only drive for now
         velocity_controller_spawner,
         gripper_current_controller_spawner,
-        # drive_controller_spawner,
+        drive_velocity_controller_spawner, 
+
         # effort_controller_spawner,
         # control_word_controller_spawner,
         # current_controller_spawner,
+        # trajectory_controller_spawner,
     ]
 
     return LaunchDescription(
