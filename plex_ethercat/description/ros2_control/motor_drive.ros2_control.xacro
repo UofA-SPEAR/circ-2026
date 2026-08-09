@@ -198,7 +198,7 @@
     <!--.........................drive.............................-->
 
 
-      <!-- <joint name="drive_1">
+      <!-- <joint name="drive_fl">
         <command_interface name="control_word"/>
         <command_interface name="position"/>
         <command_interface name="velocity"/>
@@ -215,7 +215,7 @@
         </ec_module>
       </joint>
 
-       <joint name="drive_2">
+       <joint name="drive_fr">
         <command_interface name="control_word"/>
         <command_interface name="position"/>
         <command_interface name="velocity"/>
@@ -232,7 +232,7 @@
         </ec_module>
       </joint>
 
-       <joint name="drive_3">
+       <joint name="drive_ml">
         <command_interface name="control_word"/>
         <command_interface name="position"/>
         <command_interface name="velocity"/>
@@ -249,7 +249,7 @@
         </ec_module>
       </joint>
 
-       <joint name="drive_4">
+       <joint name="drive_mr">
         <command_interface name="control_word"/>
         <command_interface name="position"/>
         <command_interface name="velocity"/>
@@ -266,7 +266,7 @@
         </ec_module>
       </joint>
 
-       <joint name="drive_5">
+       <joint name="drive_bl">
         <command_interface name="control_word"/>
         <command_interface name="position"/>
         <command_interface name="velocity"/>
@@ -283,7 +283,7 @@
         </ec_module>
       </joint>
 
-       <joint name="drive_6">
+       <joint name="drive_br">
         <command_interface name="control_word"/>
         <command_interface name="position"/>
         <command_interface name="velocity"/>
@@ -328,7 +328,7 @@
 <!--.........................steering.............................-->
 
 
-      <!-- <joint name="steer_front_left_joint">
+      <!-- <joint name="steer_fl">
         <command_interface name="control_word"/>
         <command_interface name="position"/>
         <command_interface name="velocity"/>
@@ -343,7 +343,7 @@
         </ec_module>
       </joint>
 
-       <joint name="steer_rear_left_joint">
+       <joint name="steer_fr">
         <command_interface name="control_word"/>
         <command_interface name="position"/>
         <command_interface name="velocity"/>
@@ -358,7 +358,7 @@
         </ec_module>
       </joint>
 
-      <joint name="steer_front_right_joint">
+      <joint name="steer_bl">
         <command_interface name="control_word"/>
         <command_interface name="position"/>
         <command_interface name="velocity"/>
@@ -373,7 +373,7 @@
         </ec_module>
       </joint>
 
-      <joint name="steer_rear_right_joint">
+      <joint name="steer_br">
         <command_interface name="control_word"/>
         <command_interface name="position"/>
         <command_interface name="velocity"/>

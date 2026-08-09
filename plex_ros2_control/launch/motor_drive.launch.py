@@ -83,12 +83,6 @@ def generate_launch_description():
         arguments=["jsb_gripper", "-c", "/controller_manager"],
     )
 
-    trajectory_controller_spawner = Node(
-        package="controller_manager",
-        executable="spawner",
-        arguments=["trajectory_controller", "-c", "/controller_manager", "--inactive"],
-    )
-
     steering_controller_spawner = Node(
         package="controller_manager",
         executable="spawner",
@@ -113,37 +107,15 @@ def generate_launch_description():
         arguments=["gripper_current_controller", "-c", "/controller_manager"],
     )
 
-    effort_controller_spawner = Node(
-        package="controller_manager",
-        executable="spawner",
-        arguments=["effort_controller", "-c", "/controller_manager"],
-    )
-
-    control_word_controller_spawner = Node(
-        package="controller_manager",
-        executable="spawner",
-        arguments=["control_word_controller", "-c", "/controller_manager"],
-    )
-
-    current_controller_spawner = Node(
-        package="controller_manager",
-        executable="spawner",
-        arguments=["current_controller", "-c", "/controller_manager"],
-    )
-
     nodes = [
         control_node,
         robot_state_pub_node,
         jsb_spawner,
         jsb_gripper_spawner,
-        # trajectory_controller_spawner,
         # steering_controller_spawner,
         velocity_controller_spawner,
         gripper_current_controller_spawner,
         # drive_controller_spawner,
-        # effort_controller_spawner,
-        # control_word_controller_spawner,
-        # current_controller_spawner,
     ]
 
     return LaunchDescription(
