@@ -37,7 +37,9 @@ controller_manager:
 
 jsb:
   ros__parameters:
-    use_local_topics: false
+    # Keep unwrapped hardware positions off /joint_states. The
+    # joint_state_wrapper republishes canonical angles for MoveIt.
+    use_local_topics: true
     joints:
       - joint_1
       - joint_2

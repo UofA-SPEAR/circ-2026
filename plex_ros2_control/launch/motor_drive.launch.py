@@ -83,6 +83,25 @@ def generate_launch_description():
         arguments=["jsb_gripper", "-c", "/controller_manager"],
     )
 
+    joint_state_wrapper = Node(
+        package="plex_ros2_control",
+        executable="wrap_joint_states",
+        name="joint_state_wrapper",
+        output="screen",
+        parameters=[{
+            "input_topic": "/jsb/joint_states",
+            "output_topic": "/joint_states",
+            "continuous_joints": [
+                "joint_1",
+                "joint_2",
+                "joint_3",
+                "joint_4",
+                "joint_5",
+                "joint_6",
+            ],
+        }],
+    )
+
     trajectory_controller_spawner = Node(
         package="controller_manager",
         executable="spawner",
@@ -136,6 +155,7 @@ def generate_launch_description():
         robot_state_pub_node,
         jsb_spawner,
         jsb_gripper_spawner,
+        joint_state_wrapper,
         # trajectory_controller_spawner,
         # steering_controller_spawner,
         velocity_controller_spawner,

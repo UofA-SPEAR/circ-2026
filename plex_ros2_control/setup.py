@@ -29,6 +29,7 @@ setup(
     entry_points={
         'console_scripts': [
             'drive_teleop = plex_ros2_control.drive_teleop:main',
+            'wrap_joint_states = plex_ros2_control.wrap_joint_states:main',
         ],
     },
 )
