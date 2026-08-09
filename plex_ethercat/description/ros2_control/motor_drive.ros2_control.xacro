@@ -198,7 +198,7 @@
     <!--.........................drive.............................-->
 
 
-      <joint name="drive_fl">
+      <!-- <joint name="drive_fl">
         <command_interface name="control_word"/>
         <command_interface name="position"/>
         <command_interface name="velocity"/>
@@ -213,7 +213,7 @@
           <param name="position">99</param>
           <param name="slave_config">$(find plex_ethercat)/config/dc_vel_config.yaml</param>
         </ec_module>
-      </joint>
+      </joint> -->
 <!--
        <joint name="drive_fr">
         <command_interface name="control_word"/>

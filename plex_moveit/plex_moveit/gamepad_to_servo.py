@@ -9,7 +9,7 @@ from std_msgs.msg import Float64MultiArray
 class gamepad_to_servo(Node):
     def __init__(self):
         super().__init__('gamepad_to_servo')
-        self.joy_sub = self.create_subscription(Joy, '/joy', self.joy_cb, 10)
+        self.joy_sub = self.create_subscription(Joy, '/joy_arm', self.joy_cb, 10)
         # self.twist_pub = self.create_publisher(TwistStamped, '/gamepad_to_servo/twist_raw', 10)
         self.twist_pub = self.create_publisher(TwistStamped, '/servo_node/delta_twist_cmds', 10)
         self.joint_pub = self.create_publisher(JointJog, '/servo_node/delta_joint_cmds', 10)

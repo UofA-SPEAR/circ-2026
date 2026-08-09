@@ -22,6 +22,9 @@ controller_manager:
     steer_position_controller:
       type: position_controllers/JointGroupPositionController
 
+    steer_velocity_controller:
+      type: velocity_controllers/JointGroupVelocityController
+
     # drive
     drive_velocity_controller:
       type: velocity_controllers/JointGroupVelocityController
@@ -60,7 +63,7 @@ jsb_gripper:
 
 jsb_drive:
   ros__parameters:
-    use_local_topics: false
+    use_local_topics: true
     joints:
       - drive_fl
       - drive_fr
@@ -74,11 +77,11 @@ jsb_drive:
 
 jsb_steer:
   ros__parameters:
-    use_local_topics: false
+    use_local_topics: true
     joints:
       - steer_fl
       - steer_fr
-      - steer_bl
+      # - steer_bl
       - steer_br
     interfaces:
       - position
@@ -114,9 +117,12 @@ steer_position_controller:
     joints:
       - steer_fl
       - steer_fr
-      - steer_bl
       - steer_br
 
+steer_velocity_controller:
+  ros__parameters:
+    joints:
+      - steer_bl
 
 gripper_current_controller:
   ros__parameters:

@@ -80,13 +80,13 @@ def generate_launch_description():
     jsb_drive_spawner = Node(
             package="controller_manager",
             executable="spawner",
-            arguments=["jsb_drive_spawner", "-c", "/controller_manager"],
+            arguments=["jsb_drive", "-c", "/controller_manager"],
     )
 
     jsb_steering_spawner = Node(
                 package="controller_manager",
                 executable="spawner",
-                arguments=["jsb_steering_spawner", "-c", "/controller_manager"],
+                arguments=["jsb_steer", "-c", "/controller_manager"],
     )
 
     jsb_gripper_spawner = Node(
@@ -95,11 +95,17 @@ def generate_launch_description():
         arguments=["jsb_gripper", "-c", "/controller_manager"],
     )
 
-    # steering_controller_spawner = Node(
-    #     package="controller_manager",
-    #     executable="spawner",
-    #     arguments=["steering_controller", "-c", "/controller_manager"],
-    # )
+    steer_position_controller_spawner = Node(
+        package="controller_manager",
+        executable="spawner",
+        arguments=["steer_position_controller", "-c", "/controller_manager"],
+    )
+
+    steer_velocity_controller_spawner = Node(
+        package="controller_manager",
+        executable="spawner",
+        arguments=["steer_velocity_controller", "-c", "/controller_manager"],
+    )
 
     velocity_controller_spawner = Node(
         package="controller_manager",
@@ -110,7 +116,7 @@ def generate_launch_description():
     drive_velocity_controller_spawner = Node(
         package="controller_manager",
         executable="spawner",
-        arguments=["drive_controller", "-c", "/controller_manager"],
+        arguments=["drive_velocity_controller", "-c", "/controller_manager"],
     )
 
     gripper_current_controller_spawner = Node(
@@ -127,17 +133,18 @@ def generate_launch_description():
 
         jsb_spawner,
         jsb_gripper_spawner,
-        jsb_drive_spawner,
-        jsb_steering_spawner,
+        # jsb_drive_spawner,
+        # jsb_steering_spawner,
 
 
 
 
 
-        # steering_controller_spawner,
+        # steer_position_controller_spawner,
         velocity_controller_spawner,
         gripper_current_controller_spawner,
-        # drive_controller_spawner,
+        # drive_velocity_controller_spawner,
+        # steer_velocity_controller_spawner,
     ]
 
     return LaunchDescription(

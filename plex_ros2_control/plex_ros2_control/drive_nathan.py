@@ -9,8 +9,8 @@ joint commands to two forward command controllers.
     /steering_controller/commands  std_msgs/Float64MultiArray  (4 x rad)
 
 Joint ordering (must match the `joints:` list in your controller YAML):
-    drive:    [front_left, middle_left, back_left, front_right, middle_right, back_right]
-    steering: [front_left, back_left, front_right, back_right]
+    drive:    [front_left, front_right, middle_left, middle_right, back_left, back_right]
+    steering: [front_left, front_right, back_left, back_right]
 
 Transmitter mapping:
     axes[1]     throttle, +1 idle -> -1 full, no return-to-center
@@ -64,19 +64,19 @@ class Wheel:
 # also changing the `joints:` list in the controller YAML.
 WHEELS: Tuple[Wheel, ...] = (
     Wheel("front_left",    LEN_FRONT,  HALF_TRACK, True),
-    Wheel("middle_left",   0.0,        HALF_TRACK, False),
-    Wheel("back_left",    -LEN_BACK,   HALF_TRACK, True),
     Wheel("front_right",   LEN_FRONT, -HALF_TRACK, True),
+    Wheel("middle_left",   0.0,        HALF_TRACK, False),
     Wheel("middle_right",  0.0,       -HALF_TRACK, False),
+    Wheel("back_left",    -LEN_BACK,   HALF_TRACK, True),
     Wheel("back_right",   -LEN_BACK,  -HALF_TRACK, True),
 )
 
 # Order here IS the steering controller command order.
 STEERED_WHEELS: Tuple[Wheel, ...] = (
     WHEELS[0],  # front_left
-    WHEELS[2],  # back_left
-    WHEELS[3],  # front_right
-    WHEELS[5],  # back_right
+    WHEELS[1],  # front_right
+    # WHEELS[4],  # back_left
+    # WHEELS[5],  # back_right
 )
 
 # In-place steering angles are DERIVED from the chassis geometry (see
@@ -180,11 +180,25 @@ def build_turn_geometry(omega: float) -> TurnGeometry:
 
     # atan (not atan2) keeps every angle inside (-pi/2, pi/2); the sign of
     # (r - y) carries the left/right sense correctly on its own.
-    angles = tuple(math.atan(w.x / (r - w.y)) for w in STEERED_WHEELS)
 
-    ratios = tuple(
-        math.sqrt(w.x * w.x + (w.y - r) ** 2) / abs(r) for w in WHEELS
-    )
+    # x position of the turning centre. With every unsteered wheel on one axle,
+# put it there. With unsteered wheels on two axles the system is over-
+# constrained and this splits the slip between them.
+    STEER_PIVOT_X = -LEN_BACK / 2.0
+
+    angles = tuple(math.atan((w.x - STEER_PIVOT_X) / (r - w.y)) for w in STEERED_WHEELS)
+    ratios = tuple(math.hypot(w.x - STEER_PIVOT_X, w.y - r) / math.hypot(STEER_PIVOT_X, r)
+               for w in WHEELS)
+
+    """ commenting out to test front steer only 
+
+     # angles = tuple(math.atan(w.x / (r - w.y)) for w in STEERED_WHEELS)
+    
+        # ratios = tuple(
+        #     math.sqrt(w.x * w.x + (w.y - r) ** 2) / abs(r) for w in WHEELS
+        # )
+    """
+   
 
     return TurnGeometry(angles=angles, ratios=ratios, max_ratio=max(ratios))
 
