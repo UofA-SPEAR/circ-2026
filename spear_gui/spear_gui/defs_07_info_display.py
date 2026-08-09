@@ -33,147 +33,164 @@ WINDOW_LAYER = 0
 
 text_defs_list = []
 graph_defs_list = []
-graph_points = [
-    [P(0.0, 0.00), P(0.3, 0.34), P(10, 25), P(-30, -10)],
-    [P(0.3, 0.00), P(0.6, 0.34), P(0, 25), P(-30, -10)],
-    [P(0.0, 0.34), P(0.3, 0.66), P(10, 10), P(-30, -10)],
-    [P(0.3, 0.34), P(0.6, 0.66), P(0, 10), P(-30, -10)],
-    [P(0.0, 0.66), P(0.3, 1.00), P(10, 10), P(-30, -25)],
-    [P(0.3, 0.66), P(0.6, 1.00), P(0, 10), P(-30, -25)],
-]
 
 motor_vals=[
     [P(0.00, 1/3), P(1.00, 1/3), P(0.00, 1/2), P(1.00, 1/2), P(0.00, 2/3), P(1.00, 2/3)],
     ['FL', 'FR', 'ML', 'MR', 'BL', 'BR'],
     [(0.0, 1.0), (1.0, 1.0), (0.0, 0.5), (1.0, 0.5), (0.0, 0.0), (1.0, 0.0)],
-    ['AMP', 'VOLT', 'RPM', 'ROT'],
+    # ['AMP', 'VOLT', 'RPM', 'ROT'],
+    ['CUR', 'VEL', 'ROT'],
     [30, -30, 30, -30, 30, -30],
-    [-18, -18, -10, -10, 0, 0],
-    ['test_value1', 'test_value2', 'test_value3', 'test_value4'],
+    # [-18, -18, -10, -10, 0, 0],
+    [-18 + 5, -18 + 5, -10 + 5, -10 + 5, 0 + 5, 0 + 5],
+    [
+        ['drive_fl_current', 'drive_fr_current', 'drive_ml_current', 'drive_mr_current', 'drive_bl_current', 'drive_br_current'],
+        ['drive_fl_velocity', 'drive_fr_velocity', 'drive_ml_velocity', 'drive_mr_velocity', 'drive_bl_velocity', 'drive_br_velocity'],
+        ['drive_fl_velocity_demand', 'drive_fr_velocity_demand', 'drive_ml_velocity_demand', 'drive_mr_velocity_demand', 'drive_bl_velocity_demand', 'drive_br_velocity_demand'],
+        ['steer_fl_current', 'steer_fr_current', 'steer_bl_current', 'steer_br_current'],
+        ['steer_fl_velocity', 'steer_fr_velocity', 'steer_bl_velocity', 'steer_br_velocity'],
+        ['steer_fl_velocity_demand', 'steer_fr_velocity_demand', 'steer_bl_velocity_demand', 'steer_br_velocity_demand'],
+    ],
     [(0.0, 1.0), (1.0, 1.0), (0.0, 0.5), (1.0, 0.5), (0.0, 0.0), (1.0, 0.0)],
 ]
 for i in range(0, 6, 2):
     text_defs_list.append(TextDef(p=P(0.5, motor_vals[0][i].y), px=P(0, motor_vals[5][i]),      text=motor_vals[3][0], bold=True, h_align=0.5, v_align=motor_vals[2][i][1], font_size=9.0, fill_color=QColor(255, 255, 255, 170)))
     text_defs_list.append(TextDef(p=P(0.5, motor_vals[0][i].y), px=P(0, motor_vals[5][i] + 10), text=motor_vals[3][1], bold=True, h_align=0.5, v_align=motor_vals[2][i][1], font_size=9.0, fill_color=QColor(255, 255, 255, 170)))
-    text_defs_list.append(TextDef(p=P(0.5, motor_vals[0][i].y), px=P(0, motor_vals[5][i] + 20), text=motor_vals[3][2], bold=True, h_align=0.5, v_align=motor_vals[2][i][1], font_size=9.0, fill_color=QColor(255, 255, 255, 170)))
 
 for i in range(6):
     text_defs_list.append(TextDef(p=motor_vals[0][i], px=P((10 + 4 * round(((i + 1) % 5) / 4)) * np.sign(0.5 - motor_vals[2][i][0]), 0), text=motor_vals[1][i], italic=True, h_align=motor_vals[2][i][0], v_align=motor_vals[2][i][1], font_size=15.0, fill_color=QColor(255, 255, 255, 255)))
 
-    text_defs_list.append(TextDef(p=P(0.5, motor_vals[0][i].y), px=P(20 * -np.sign(motor_vals[4][i]), motor_vals[5][i]),      text='<#>', h_align=1-motor_vals[2][i][0], v_align=motor_vals[2][i][1], font_size=9.0, font_family='Oxanium', fill_color=QColor(255, 255, 255, 170), text_fn=lambda ctx: '{:.2f}'.format(ctx[motor_vals[6][0]]['latest'])))
-    text_defs_list.append(TextDef(p=P(0.5, motor_vals[0][i].y), px=P(20 * -np.sign(motor_vals[4][i]), motor_vals[5][i] + 10), text='<#>', h_align=1-motor_vals[2][i][0], v_align=motor_vals[2][i][1], font_size=9.0, font_family='Oxanium', fill_color=QColor(255, 255, 255, 170), text_fn=lambda ctx: '{:.2f}'.format(ctx[motor_vals[6][1]]['latest'])))
-    text_defs_list.append(TextDef(p=P(0.5, motor_vals[0][i].y), px=P(20 * -np.sign(motor_vals[4][i]), motor_vals[5][i] + 20), text='<#>', h_align=1-motor_vals[2][i][0], v_align=motor_vals[2][i][1], font_size=9.0, font_family='Oxanium', fill_color=QColor(255, 255, 255, 170), text_fn=lambda ctx: (f'{round(ctx[motor_vals[6][2]]["latest"])}')))
-    text_defs_list.append(TextDef(p=P(0.5, motor_vals[0][i].y), px=P(40 * -np.sign(motor_vals[4][i]), motor_vals[5][i] + 20), text='<#>', bold=True, h_align=1-motor_vals[2][i][0], v_align=motor_vals[2][i][1], font_size=9.0, font_family='Oxanium', fill_color=QColor(255, 100, 100, 170), text_fn=lambda ctx: (f'{round(ctx[motor_vals[6][3]]["latest"])}')))
+    text_defs_list.append(TextDef(p=P(0.5, motor_vals[0][i].y), px=P(20 * -np.sign(motor_vals[4][i]), motor_vals[5][i]),      text='<#>', h_align=1-motor_vals[2][i][0], v_align=motor_vals[2][i][1], font_size=9.0, font_family='Oxanium', fill_color=QColor(255, 255, 255, 170), text_fn=lambda ctx: '{:.2f}'.format(ctx[motor_vals[6][0][i]]['latest'])))
+    # text_defs_list.append(TextDef(p=P(0.5, motor_vals[0][i].y), px=P(20 * -np.sign(motor_vals[4][i]), motor_vals[5][i] + 10), text='<#>', h_align=1-motor_vals[2][i][0], v_align=motor_vals[2][i][1], font_size=9.0, font_family='Oxanium', fill_color=QColor(255, 255, 255, 170), text_fn=lambda ctx: '{:.2f}'.format(ctx[motor_vals[6][1]]['latest'])))
+    text_defs_list.append(TextDef(p=P(0.5, motor_vals[0][i].y), px=P(20 * -np.sign(motor_vals[4][i]), motor_vals[5][i] + 10), text='<#>', h_align=1-motor_vals[2][i][0], v_align=motor_vals[2][i][1], font_size=9.0, font_family='Oxanium', fill_color=QColor(255, 255, 255, 170), text_fn=lambda ctx: (f'{round(ctx[motor_vals[6][1][i]]["latest"])}')))
+    text_defs_list.append(TextDef(p=P(0.5, motor_vals[0][i].y), px=P(40 * -np.sign(motor_vals[4][i]), motor_vals[5][i] + 10), text='<#>', bold=True, h_align=1-motor_vals[2][i][0], v_align=motor_vals[2][i][1], font_size=9.0, font_family='Oxanium', fill_color=QColor(255, 100, 100, 170), text_fn=lambda ctx: (f'{round(ctx[motor_vals[6][2][i]]["latest"])}')))
 
 for i in range(6):
     if i == 2 or i == 3:
         continue
     p_y = 0 if i < 3 else 1
-    px_y = 0 if i < 3 else -18
+    px_y = 0 + 5 if i < 3 else -18 + 5
     
-    text_defs_list.append(TextDef(p=P(0.5, p_y), px=P(20 * -np.sign(motor_vals[4][i]), px_y),      text='<#>', h_align=1-motor_vals[2][i][0], v_align=1-motor_vals[2][i][1], font_size=9.0, font_family='Oxanium', fill_color=QColor(255, 255, 255, 170), text_fn=lambda ctx: '{:.2f}'.format(ctx[motor_vals[6][0]]['latest'])))
-    text_defs_list.append(TextDef(p=P(0.5, p_y), px=P(20 * -np.sign(motor_vals[4][i]), px_y + 10), text='<#>', h_align=1-motor_vals[2][i][0], v_align=1-motor_vals[2][i][1], font_size=9.0, font_family='Oxanium', fill_color=QColor(255, 255, 255, 170), text_fn=lambda ctx: '{:.2f}'.format(ctx[motor_vals[6][1]]['latest'])))
-    text_defs_list.append(TextDef(p=P(0.5, p_y), px=P(20 * -np.sign(motor_vals[4][i]), px_y + 20), text='<#>', h_align=1-motor_vals[2][i][0], v_align=1-motor_vals[2][i][1], font_size=9.0, font_family='Oxanium', fill_color=QColor(255, 255, 255, 170), text_fn=lambda ctx: (f'{round(ctx[motor_vals[6][2]]["latest"])}')))
-    text_defs_list.append(TextDef(p=P(0.5, p_y), px=P(40 * -np.sign(motor_vals[4][i]), px_y + 20), text='<#>', bold=True, h_align=1-motor_vals[2][i][0], v_align=1-motor_vals[2][i][1], font_size=9.0, font_family='Oxanium', fill_color=QColor(255, 100, 100, 170), text_fn=lambda ctx: (f'{round(ctx[motor_vals[6][3]]["latest"])}')))
+    text_defs_list.append(TextDef(p=P(0.5, p_y), px=P(20 * -np.sign(motor_vals[4][i]), px_y),      text='<#>', h_align=1-motor_vals[2][i][0], v_align=1-motor_vals[2][i][1], font_size=9.0, font_family='Oxanium', fill_color=QColor(255, 255, 255, 170), text_fn=lambda ctx: '{:.2f}'.format(ctx[motor_vals[6][3][i]]['latest'])))
+    # text_defs_list.append(TextDef(p=P(0.5, p_y), px=P(20 * -np.sign(motor_vals[4][i]), px_y + 10), text='<#>', h_align=1-motor_vals[2][i][0], v_align=1-motor_vals[2][i][1], font_size=9.0, font_family='Oxanium', fill_color=QColor(255, 255, 255, 170), text_fn=lambda ctx: '{:.2f}'.format(ctx[motor_vals[6][1]]['latest'])))
+    text_defs_list.append(TextDef(p=P(0.5, p_y), px=P(20 * -np.sign(motor_vals[4][i]), px_y + 20), text='<#>', h_align=1-motor_vals[2][i][0], v_align=1-motor_vals[2][i][1], font_size=9.0, font_family='Oxanium', fill_color=QColor(255, 255, 255, 170), text_fn=lambda ctx: (f'{round(ctx[motor_vals[6][4][i]]["latest"])}')))
+    text_defs_list.append(TextDef(p=P(0.5, p_y), px=P(40 * -np.sign(motor_vals[4][i]), px_y + 20), text='<#>', bold=True, h_align=1-motor_vals[2][i][0], v_align=1-motor_vals[2][i][1], font_size=9.0, font_family='Oxanium', fill_color=QColor(255, 100, 100, 170), text_fn=lambda ctx: (f'{round(ctx[motor_vals[6][5][i]]["latest"])}')))
     
     if i == 1 or i == 4:
         continue
 
     text_defs_list.append(TextDef(p=P(0.5, p_y), px=P(0, px_y),      text=motor_vals[3][0], bold=True, h_align=0.5, v_align=1-motor_vals[2][i][1], font_size=9.0, fill_color=QColor(255, 255, 255, 170)))
-    text_defs_list.append(TextDef(p=P(0.5, p_y), px=P(0, px_y + 10), text=motor_vals[3][1], bold=True, h_align=0.5, v_align=1-motor_vals[2][i][1], font_size=9.0, fill_color=QColor(255, 255, 255, 170)))
-    text_defs_list.append(TextDef(p=P(0.5, p_y), px=P(0, px_y + 20), text=motor_vals[3][3], bold=True, h_align=0.5, v_align=1-motor_vals[2][i][1], font_size=9.0, fill_color=QColor(255, 255, 255, 170)))
+    # text_defs_list.append(TextDef(p=P(0.5, p_y), px=P(0, px_y + 10), text=motor_vals[3][1], bold=True, h_align=0.5, v_align=1-motor_vals[2][i][1], font_size=9.0, fill_color=QColor(255, 255, 255, 170)))
+    text_defs_list.append(TextDef(p=P(0.5, p_y), px=P(0, px_y + 10), text=motor_vals[3][2], bold=True, h_align=0.5, v_align=1-motor_vals[2][i][1], font_size=9.0, fill_color=QColor(255, 255, 255, 170)))
 
 
-graph_series=[
-    [
-        SeriesDef(value_fn=lambda ctx: ctx['test_value1']['latest'], name='value1', color=QColor(255, 106, 106, 255), outline_width=1.0, fill_opacity=0.08),
-    ],
-    [
-        SeriesDef(value_fn=lambda ctx: ctx['joint_1_bus_voltage']['latest'], name='value1', color=QColor(255, 106, 106, 255), outline_width=1.0, fill_opacity=0.08),
-        SeriesDef(value_fn=lambda ctx: ctx['joint_2_bus_voltage']['latest'], name='value2', color=QColor(255, 111, 151, 255), outline_width=1.0, fill_opacity=0.08),
-        SeriesDef(value_fn=lambda ctx: ctx['joint_3_bus_voltage']['latest'], name='value3', color=QColor(255, 126, 192, 255), outline_width=1.0, fill_opacity=0.08),
-        SeriesDef(value_fn=lambda ctx: ctx['joint_4_bus_voltage']['latest'], name='value4', color=QColor(238, 145, 227, 255), outline_width=1.0, fill_opacity=0.08),
-        SeriesDef(value_fn=lambda ctx: ctx['joint_5_bus_voltage']['latest'], name='value5', color=QColor(214, 165, 252, 255), outline_width=1.0, fill_opacity=0.08),
-    ],
-    [
-        SeriesDef(value_fn=lambda ctx: ctx['test_value1']['latest'], name='value1', color=QColor(255, 106, 106, 255), outline_width=1.0, fill_opacity=0.08),
-        SeriesDef(value_fn=lambda ctx: ctx['test_value2']['latest'], name='value2', color=QColor(255, 111, 151, 255), outline_width=1.0, fill_opacity=0.08),
-        SeriesDef(value_fn=lambda ctx: ctx['test_value3']['latest'], name='value3', color=QColor(255, 126, 192, 255), outline_width=1.0, fill_opacity=0.08),
-        SeriesDef(value_fn=lambda ctx: ctx['test_value4']['latest'], name='value4', color=QColor(238, 145, 227, 255), outline_width=1.0, fill_opacity=0.08),
-        SeriesDef(value_fn=lambda ctx: ctx['test_value5']['latest'], name='value5', color=QColor(214, 165, 252, 255), outline_width=1.0, fill_opacity=0.08),
-        SeriesDef(value_fn=lambda ctx: ctx['test_value6']['latest'], name='value6', color=QColor(187, 184, 255, 255), outline_width=1.0, fill_opacity=0.08),
-        SeriesDef(value_fn=lambda ctx: ctx['test_value7']['latest'], name='value7', color=QColor(164, 200, 255, 255), outline_width=1.0, fill_opacity=0.08),
-        SeriesDef(value_fn=lambda ctx: ctx['test_value8']['latest'], name='value8', color=QColor(150, 213, 255, 255), outline_width=1.0, fill_opacity=0.08),
-        SeriesDef(value_fn=lambda ctx: ctx['test_value9']['latest'], name='value9', color=QColor(149, 224, 255, 255), outline_width=1.0, fill_opacity=0.08),
-    ],
-    [
-        SeriesDef(value_fn=lambda ctx: ctx['test_value1']['latest'], name='value1', color=QColor(255, 106, 106, 255), outline_width=1.0, fill_opacity=0.08),
-        SeriesDef(value_fn=lambda ctx: ctx['test_value2']['latest'], name='value2', color=QColor(255, 111, 151, 255), outline_width=1.0, fill_opacity=0.08),
-        SeriesDef(value_fn=lambda ctx: ctx['test_value3']['latest'], name='value3', color=QColor(255, 126, 192, 255), outline_width=1.0, fill_opacity=0.08),
-        SeriesDef(value_fn=lambda ctx: ctx['test_value4']['latest'], name='value4', color=QColor(238, 145, 227, 255), outline_width=1.0, fill_opacity=0.08),
-        SeriesDef(value_fn=lambda ctx: ctx['test_value5']['latest'], name='value5', color=QColor(214, 165, 252, 255), outline_width=1.0, fill_opacity=0.08),
-        SeriesDef(value_fn=lambda ctx: ctx['test_value6']['latest'], name='value6', color=QColor(187, 184, 255, 255), outline_width=1.0, fill_opacity=0.08),
-        SeriesDef(value_fn=lambda ctx: ctx['test_value7']['latest'], name='value7', color=QColor(164, 200, 255, 255), outline_width=1.0, fill_opacity=0.08),
-        SeriesDef(value_fn=lambda ctx: ctx['test_value8']['latest'], name='value8', color=QColor(150, 213, 255, 255), outline_width=1.0, fill_opacity=0.08),
-        SeriesDef(value_fn=lambda ctx: ctx['test_value9']['latest'], name='value9', color=QColor(149, 224, 255, 255), outline_width=1.0, fill_opacity=0.08),
-    ],
-    [
-        SeriesDef(value_fn=lambda ctx: ctx['test_value1']['latest'], name='value1', color=QColor(255, 106, 106, 255), outline_width=1.0, fill_opacity=0.08),
-        SeriesDef(value_fn=lambda ctx: ctx['test_value2']['latest'], name='value2', color=QColor(255, 111, 151, 255), outline_width=1.0, fill_opacity=0.08),
-        SeriesDef(value_fn=lambda ctx: ctx['test_value3']['latest'], name='value3', color=QColor(255, 126, 192, 255), outline_width=1.0, fill_opacity=0.08),
-        SeriesDef(value_fn=lambda ctx: ctx['test_value4']['latest'], name='value4', color=QColor(238, 145, 227, 255), outline_width=1.0, fill_opacity=0.08),
-        SeriesDef(value_fn=lambda ctx: ctx['test_value5']['latest'], name='value5', color=QColor(214, 165, 252, 255), outline_width=1.0, fill_opacity=0.08),
-        SeriesDef(value_fn=lambda ctx: ctx['test_value6']['latest'], name='value6', color=QColor(187, 184, 255, 255), outline_width=1.0, fill_opacity=0.08),
-        SeriesDef(value_fn=lambda ctx: ctx['test_value7']['latest'], name='value7', color=QColor(164, 200, 255, 255), outline_width=1.0, fill_opacity=0.08),
-        SeriesDef(value_fn=lambda ctx: ctx['test_value8']['latest'], name='value8', color=QColor(150, 213, 255, 255), outline_width=1.0, fill_opacity=0.08),
-        SeriesDef(value_fn=lambda ctx: ctx['test_value9']['latest'], name='value9', color=QColor(149, 224, 255, 255), outline_width=1.0, fill_opacity=0.08),
-    ],
-    [
-        SeriesDef(value_fn=lambda ctx: ctx['test_value1']['latest'], name='value1', color=QColor(255, 106, 106, 255), outline_width=1.0, fill_opacity=0.08),
-        SeriesDef(value_fn=lambda ctx: ctx['test_value2']['latest'], name='value2', color=QColor(255, 111, 151, 255), outline_width=1.0, fill_opacity=0.08),
-        SeriesDef(value_fn=lambda ctx: ctx['test_value3']['latest'], name='value3', color=QColor(255, 126, 192, 255), outline_width=1.0, fill_opacity=0.08),
-        SeriesDef(value_fn=lambda ctx: ctx['test_value4']['latest'], name='value4', color=QColor(238, 145, 227, 255), outline_width=1.0, fill_opacity=0.08),
-        SeriesDef(value_fn=lambda ctx: ctx['test_value5']['latest'], name='value5', color=QColor(214, 165, 252, 255), outline_width=1.0, fill_opacity=0.08),
-        SeriesDef(value_fn=lambda ctx: ctx['test_value6']['latest'], name='value6', color=QColor(187, 184, 255, 255), outline_width=1.0, fill_opacity=0.08),
-        SeriesDef(value_fn=lambda ctx: ctx['test_value7']['latest'], name='value7', color=QColor(164, 200, 255, 255), outline_width=1.0, fill_opacity=0.08),
-        SeriesDef(value_fn=lambda ctx: ctx['test_value8']['latest'], name='value8', color=QColor(150, 213, 255, 255), outline_width=1.0, fill_opacity=0.08),
-        SeriesDef(value_fn=lambda ctx: ctx['test_value9']['latest'], name='value9', color=QColor(149, 224, 255, 255), outline_width=1.0, fill_opacity=0.08),
-    ],
-]
-graph_hidden =              [True, True, True, True, True, True]
-graph_stack =               [False, False, True, True, True, True]
-graph_max_time =            [360, 10, 10, 10, 10, 10]
-graph_start_display_time =  [0, 0, 0, 0, 0, 0]
-graph_end_display_time =    [360, 10, 10, 10, 10, 10]
-graph_value_range =         [(0, 10), (45000, 50000), (0, 100), (0, 100), (0, 100), (0, 100)]
-graph_update_interval =     [5, 1, 1, 1, 1, 1]
+graph_hidden =              []
+graph_stack =               []
+graph_max_time =            []
+graph_update_interval =     []
+graph_value_range =         []
+graph_dynamic_scale =       []
 
 graph_text_defs_list = []
-graph_names=[
-    'BATTERY', 
-    'ARM BUS VOLTAGE',# 'DRIVE MOTOR VOLTAGE', 
-    'DRIVE MOTOR AMPS', 
-    'DRIVE MOTOR RPM', 
-    'STEER MOTOR VOLTAGE', 
-    'STEER MOTOR AMPS',
-    'STEER MOTOR RPM',
-    'ARM MOTOR VOLTAGE',
-    'ARM MOTOR AMPS',
-    'POWER CONSUMPTION PER SYSTEM',
-    'JETSON',
+graph_names=[]
+
+def make_series(names, display_names, title, hidden, stack, max_time, update_interval, value_range, dynamic_scale):
+    graph_hidden.append(hidden)
+    graph_stack.append(stack)
+    graph_max_time.append(max_time)
+    graph_update_interval.append(update_interval)
+    graph_value_range.append(value_range)
+    graph_dynamic_scale.append(dynamic_scale)
+    graph_names.append(title)
+
+    series = []
+    color_list = [QColor(255, 106, 106, 255), QColor(255, 111, 151, 255), QColor(255, 126, 192, 255), QColor(238, 145, 227, 255), QColor(214, 165, 252, 255), QColor(187, 184, 255, 255), QColor(164, 200, 255, 255), QColor(150, 213, 255, 255), QColor(149, 224, 255, 255)]
+    for i in range(min(len(names), len(display_names))):
+        series.append(SeriesDef(value_fn=lambda ctx, name=names[i]: ctx[name]['latest'], name=display_names[i], color=color_list[i], outline_width=1.0, fill_opacity=0.08))
+    return series
+
+graph_series=[
+    make_series(
+        ['test_value1'], 
+        ['value1'],
+        'BATTERY (%)', False, False, 360, 5, (0, 1), 5
+    ),
+    make_series(
+        ['joint_1_position', 'joint_2_position', 'joint_3_position', 'joint_4_position', 'joint_5_position', 'joint_6_position'], 
+        ['joint 1', 'joint 2', 'joint 3', 'joint 4', 'joint 5', 'joint 6'],
+        'ARM POSITION (RAD)', False, False, 10, 1, (-0.5, 0.5), 0.1
+    ),
+    make_series(
+        ['joint_1_velocity', 'joint_2_velocity', 'joint_3_velocity', 'joint_4_velocity', 'joint_5_velocity', 'joint_6_velocity'], 
+        ['joint 1', 'joint 2', 'joint 3', 'joint 4', 'joint 5', 'joint 6'],
+        'ARM VELOCITY (RAD/s)', False, False, 10, 1, (-0.5, 0.5), 0.1
+    ),
+    make_series(
+        ['joint_1_current', 'joint_2_current', 'joint_3_current', 'joint_4_current', 'joint_5_current', 'joint_7_current'], 
+        ['joint 1', 'joint 2', 'joint 3', 'joint 4', 'joint 5', 'joint 7'],
+        'ARM CURRENT', False, False, 10, 1, (0, 0), 1
+    ),
+    # make_series(
+    #     ['joint_1_bus_voltage', 'joint_2_bus_voltage', 'joint_3_bus_voltage', 'joint_4_bus_voltage', 'joint_5_bus_voltage'], 
+    #     ['joint 1', 'joint 2', 'joint 3', 'joint 4', 'joint 5'],
+    #     'ARM BUS VOLTAGE', True, False, 10, 1, (47500, 48500), 100
+    # ),
+    # Test Graphs
+    # make_series(
+    #     ['test_value1', 'test_value2', 'test_value3', 'test_value4', 'test_value5', 'test_value6', 'test_value7', 'test_value8', 'test_value9'], 
+    #     ['value1', 'value2', 'value3', 'value4', 'value5', 'value6', 'value7', 'value8', 'value9'],
+    #     'TEST', True, False, 10, 1, (0, 50), 5
+    # ),
+    # make_series(
+    #     ['test_value1', 'test_value2', 'test_value3', 'test_value4', 'test_value5', 'test_value6', 'test_value7', 'test_value8', 'test_value9'], 
+    #     ['value1', 'value2', 'value3', 'value4', 'value5', 'value6', 'value7', 'value8', 'value9'],
+    #     'TEST STACK', True, True, 10, 1, (0, 50), 5
+    # ),
+
+    # Change these values to match the real values once obtained
+    make_series(
+        ['drive_fl_velocity', 'drive_fr_velocity', 'drive_ml_velocity', 'drive_mr_velocity', 'drive_bl_velocity', 'drive_br_velocity'], 
+        ['FL', 'FR', 'ML', 'MR', 'BL', 'BR'],
+        'DRIVE VELOCITY (RAD/s)', False, False, 10, 1, (-0.5, 0.5), 0.1
+    ),
+    make_series(
+        ['drive_fl_current', 'drive_fr_current', 'drive_ml_current', 'drive_mr_current', 'drive_bl_current', 'drive_br_current'], 
+        ['FL', 'FR', 'ML', 'MR', 'BL', 'BR'],
+        'DRIVE CURRENT', False, False, 10, 1, (-0.5, 0.5), 0.1
+    ),
+    make_series(
+        ['steer_fl_position', 'steer_fr_position', 'steer_bl_position', 'steer_br_position'], 
+        ['FL', 'FR', 'BL', 'BR'],
+        'STEER ROTATION (RAD)', False, False, 10, 1, (-0.5, 0.5), 0.1
+    ),
+    make_series(
+        ['steer_fl_current', 'steer_fr_current', 'steer_bl_current', 'steer_br_current'], 
+        ['FL', 'FR', 'BL', 'BR'],
+        'STEER CURRENT', False, False, 10, 1, (-0.5, 0.5), 0.1
+    ),
 ]
+
+graph_points = [
+    [P(0.35, 0.00), P(0.70, 0.25), P(0, 0), P(0, 0)],
+    [P(0.00, 0.00), P(0.35, 0.25), P(0, 0), P(0, 0)],
+    [P(0.00, 0.25), P(0.35, 0.50), P(0, 0), P(0, 0)],
+    [P(0.35, 0.25), P(0.70, 0.50), P(0, 0), P(0, 0)],
+    [P(0.00, 0.50), P(0.35, 0.75), P(0, 0), P(0, 0)],
+    [P(0.35, 0.50), P(0.70, 0.75), P(0, 0), P(0, 0)],
+    [P(0.00, 0.75), P(0.35, 1.00), P(0, 0), P(0, -10)],
+    [P(0.35, 0.75), P(0.70, 1.00), P(0, 0), P(0, -10)],
+]
+
 
 info_texts = []
 info_buttons = []
 info_sliders = []
 graph_sub_windows = []
-total_graphs = 6
+total_graphs = len(graph_series)
 
 for i in range(total_graphs):
     register_event(EventDef(name=f'graph_{i}_hidden',             value=graph_hidden[i]))
     register_event(EventDef(name=f'graph_{i}_max_time',           value=graph_max_time[i]))
-    register_event(EventDef(name=f'graph_{i}_start_display_time', value=graph_start_display_time[i]))
-    register_event(EventDef(name=f'graph_{i}_end_display_time',   value=graph_end_display_time[i]))
     register_event(EventDef(name=f'graph_{i}_update_interval',    value=graph_update_interval[i]))
     
     edge_px = 75
@@ -191,8 +208,8 @@ for i in range(total_graphs):
         'open':  Phase([TextTween(char_display=1.0, start=0, dur=1.0, ease=QEasingCurve.OutQuint)]),
         'close': Phase([TextTween(char_display=0.0, start=0, dur=1.0, ease=QEasingCurve.OutQuint)]),
     }))
-    info_texts.append(TextDef(p=button_p, px=P(0, 30), text='<#>', font_size=16, h_align=0.5, v_align=0.5, char_display=0.0, sub_char_clip=True, 
-        text_fn=lambda ctx: 'Active' if not get_event(f'graph_{i}_hidden').value else 'Inactive', phases={
+    info_texts.append(TextDef(p=button_p, px=P(0, 30), text='<#>', bold=True, font_size=10, h_align=0.5, v_align=0.5, char_display=0.0, sub_char_clip=True, 
+        text_fn=lambda ctx, i=i: 'ACTIVE' if not get_event(f'graph_{i}_hidden').value else '', phases={
         'open':  Phase([TextTween(char_display=1.0, start=0, dur=1.0, ease=QEasingCurve.OutQuint)]),
         'close': Phase([TextTween(char_display=0.0, start=0, dur=1.0, ease=QEasingCurve.OutQuint)]),
     }))
@@ -201,7 +218,7 @@ for i in range(total_graphs):
     #     snap_points=[10, 20, 30, 45, 60, 90, 120, 180, 240, 300, 600, 900, 1200, 1800, 2400, 3000, 3600]))
     # info_sliders.append(make_slider(event_name=f'graph_{i}_start_display_time', p1=P(p_x1, 0.3), p2=P(p_x2, 0.3), px1=P(0, 0), px2=P(0, 0), half=3.0, min_val=0, max_val=1790, step=10, 
     #     snap_points=[0, 10, 20, 30, 45, 60, 90, 120, 180, 240, 300, 600, 900, 1200, 1800, 2400, 3000, 3600]))
-    info_sliders.append(make_slider(event_name=f'graph_{i}_end_display_time',   p1=P(p_x1, 0.4), p2=P(p_x2, 0.4), px1=P(0, 0), px2=P(0, 0), half=3.0, min_val=10, max_val=1800, step=10,
+    info_sliders.append(make_slider(event_name=f'graph_{i}_max_time',   p1=P(p_x1, 0.4), p2=P(p_x2, 0.4), px1=P(0, 0), px2=P(0, 0), half=3.0, min_val=10, max_val=1800, step=10,
         snap_points=[10, 20, 30, 45, 60, 90, 120, 180, 240, 300, 600, 900, 1200, 1800, 2400, 3000, 3600]))
     info_sliders.append(make_slider(event_name=f'graph_{i}_update_interval',    p1=P(p_x1, 0.5), p2=P(p_x2, 0.5), px1=P(0, 0), px2=P(0, 0), half=3.0, min_val=0, max_val=30, step=1, decimals=2,
         snap_points=[0, 0.05, 0.1, 0.15, 0.2, 0.25, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1, 1.5, 2, 3, 4, 5, 10, 15, 20, 25, 30, 60, 90, 120]))
@@ -225,14 +242,14 @@ for i in range(total_graphs):
                 GraphDef(
                     p1=P(0, 0), p2=P(1, 1),
                     series =                graph_series[i],
-                    max_time =              lambda: get_event(f'graph_{i}_end_display_time').value, # lambda: get_event(f'graph_{i}_max_time'),
-                    start_display_time =    lambda: get_event(f'graph_{i}_start_display_time').value,
-                    end_display_time =      lambda: get_event(f'graph_{i}_end_display_time').value,
+                    max_time =              lambda i=i: get_event(f'graph_{i}_max_time').value, # lambda i=i: get_event(f'graph_{i}_max_time'),
+                    start_display_time =    lambda i=i: get_event(f'graph_{i}_start_display_time').value,
+                    end_display_time =      lambda i=i: get_event(f'graph_{i}_max_time').value,
                     value_range=            graph_value_range[i],
                     value_color=QColor(255, 255, 255, 255),
                     ease_dur=0.9,
                     ease_type=QEasingCurve.OutQuint,    
-                    dynamic_scale=5.0,
+                    dynamic_scale=graph_dynamic_scale[i],
                     show_minmax = True,
                     show_step = True,
                     step_count =            lambda: int(get_event('graph_steps').value),
@@ -241,7 +258,7 @@ for i in range(total_graphs):
                     size_step = 8.0,
                     size_name = 8.0,
                     stack=graph_stack[i],
-                    update_interval =       lambda: get_event(f'graph_{i}_update_interval').value, 
+                    update_interval =       lambda i=i: get_event(f'graph_{i}_update_interval').value, 
                 )
             ]
         )
@@ -261,7 +278,7 @@ def _rpm_to_height(rpm: float, max_height: float = BAR_MAX_HEIGHT, k: float = BA
 motor_rpm_actual_events = [register_event(EventDef(name=f'motor_{i}_rpm_actual', value=0.0)) for i in range(6)]
 motor_rpm_cmd_events    = [register_event(EventDef(name=f'motor_{i}_rpm_cmd',    value=0.0)) for i in range(6)]
 
-MOTOR_RPM_ACTUAL_KEYS = [f'test_value{(i % 9) + 1}' for i in range(6)]
+MOTOR_RPM_ACTUAL_KEYS = [f'drive_{i}_velocity' for i in range(6)]
 MOTOR_RPM_CMD_KEYS    = [f'test_value{((i + 4) % 9) + 1}' for i in range(6)]
 
 motor_rpm_listeners = []
@@ -295,18 +312,18 @@ for i in range(6):
     actual_x0, actual_x1 = px_base_x - (BAR_GAP / 2 + BAR_WIDTH), px_base_x - (BAR_GAP / 2)
     cmd_x0,    cmd_x1    = px_base_x + (BAR_GAP / 2),            px_base_x + (BAR_GAP / 2 + BAR_WIDTH)
 
-    motor_rpm_bar_polys.append(PolygonDef(   # real RPM bar
-        p=[anchor] * 4,
-        px=[P(actual_x0, px_base_y + BAR_BASELINE_DY), P(actual_x1, px_base_y + BAR_BASELINE_DY), P(actual_x1, px_base_y + BAR_BASELINE_DY), P(actual_x0, px_base_y + BAR_BASELINE_DY)],
-        gradient=get_gradient('alt_color_fill'),
-        pos_fn=_make_rpm_bar_pos_fn(motor_rpm_actual_events[i]),
-    ))
-    motor_rpm_bar_polys.append(PolygonDef(   # commanded RPM bar
-        p=[anchor] * 4,
-        px=[P(cmd_x0, px_base_y + BAR_BASELINE_DY), P(cmd_x1, px_base_y + BAR_BASELINE_DY), P(cmd_x1, px_base_y + BAR_BASELINE_DY), P(cmd_x0, px_base_y + BAR_BASELINE_DY)],
-        fill_color=QColor(255, 255, 255, 255),
-        pos_fn=_make_rpm_bar_pos_fn(motor_rpm_cmd_events[i]),
-    ))
+    # motor_rpm_bar_polys.append(PolygonDef(   # real RPM bar
+    #     p=[anchor] * 4,
+    #     px=[P(actual_x0, px_base_y + BAR_BASELINE_DY), P(actual_x1, px_base_y + BAR_BASELINE_DY), P(actual_x1, px_base_y + BAR_BASELINE_DY), P(actual_x0, px_base_y + BAR_BASELINE_DY)],
+    #     gradient=get_gradient('alt_color_fill'),
+    #     pos_fn=_make_rpm_bar_pos_fn(motor_rpm_actual_events[i]),
+    # ))
+    # motor_rpm_bar_polys.append(PolygonDef(   # commanded RPM bar
+    #     p=[anchor] * 4,
+    #     px=[P(cmd_x0, px_base_y + BAR_BASELINE_DY), P(cmd_x1, px_base_y + BAR_BASELINE_DY), P(cmd_x1, px_base_y + BAR_BASELINE_DY), P(cmd_x0, px_base_y + BAR_BASELINE_DY)],
+    #     fill_color=QColor(255, 255, 255, 255),
+    #     pos_fn=_make_rpm_bar_pos_fn(motor_rpm_cmd_events[i]),
+    # ))
     # motor_rpm_bar_polys.append(PolygonDef(
     #     p=[anchor, anchor],
     #     px=[P(actual_x0 - 2, BAR_BASELINE_DY), P(cmd_x1 + 2, BAR_BASELINE_DY)],
@@ -317,7 +334,7 @@ motor_rot_angles_polys = []
 motor_rot_actual_events = [register_event(EventDef(name=f'motor_{i}_rot_actual', value=0.0)) for i in range(4)]
 motor_rot_cmd_events    = [register_event(EventDef(name=f'motor_{i}_rot_cmd',    value=0.0)) for i in range(4)]
 
-MOTOR_ROT_ACTUAL_KEYS = [f'test_value{(i % 9) + 1}' for i in range(6)]
+MOTOR_ROT_ACTUAL_KEYS = [f'steer_{i}_position' for i in range(4)]
 MOTOR_ROT_CMD_KEYS    = [f'test_value{((i + 4) % 9) + 1}' for i in range(6)]
 
 for i in range(4):
@@ -338,13 +355,13 @@ needle_info=[
 ]
 
 for i in range(4):
-    motor_rot_angles_polys.append( # COMMANDED
-        PolygonDef(p=[needle_info[0][i]]*6, px=[P(needle_info[1][i] - 9, 18), P(needle_info[1][i] - 11, 0), P(needle_info[1][i] - 9, -18), P(needle_info[1][i] + 9, -18), P(needle_info[1][i] + 11, 0), P(needle_info[1][i] + 9, 18)], 
-            fill_color=QColor(0, 0, 0, 0), outline_color=QColor(255, 0, 0, 255), outline_width=1,
-            rot_center_p=needle_info[0][i], rot_center_px=P(needle_info[1][i], 0), rot_angle=0,
-            rot_angle_fn=motor_rot_cmd_events[i],
-        ),
-    )
+    # motor_rot_angles_polys.append( # COMMANDED
+    #     PolygonDef(p=[needle_info[0][i]]*6, px=[P(needle_info[1][i] - 9, 18), P(needle_info[1][i] - 11, 0), P(needle_info[1][i] - 9, -18), P(needle_info[1][i] + 9, -18), P(needle_info[1][i] + 11, 0), P(needle_info[1][i] + 9, 18)], 
+    #         fill_color=QColor(0, 0, 0, 0), outline_color=QColor(255, 0, 0, 255), outline_width=1,
+    #         rot_center_p=needle_info[0][i], rot_center_px=P(needle_info[1][i], 0), rot_angle=0,
+    #         rot_angle_fn=motor_rot_cmd_events[i],
+    #     ),
+    # )
     motor_rot_angles_polys.append( # REAL FILL
         PolygonDef(p=[needle_info[0][i]]*6, px=[P(needle_info[1][i] - 9, 18), P(needle_info[1][i] - 11, 0), P(needle_info[1][i] - 9, -18), P(needle_info[1][i] + 9, -18), P(needle_info[1][i] + 11, 0), P(needle_info[1][i] + 9, 18)], 
             fill_color=QColor(255, 255, 255, 127),
@@ -361,13 +378,13 @@ for i in range(4):
     )
 
     needle_py_sign = -1 if i <= 1 else 1
-    motor_rot_angles_polys.append( # COMMANDED
-        PolygonDef(p=[needle_info[0][i]]*4, px=[P(needle_info[1][i], needle_py_sign * 23), P(needle_info[1][i] - 2, needle_py_sign * 25), P(needle_info[1][i], needle_py_sign * 35), P(needle_info[1][i] + 2, needle_py_sign * 25)], 
-            fill_color=QColor(0, 0, 0, 0), outline_color=QColor(255, 0, 0, 255), outline_width=1,
-            rot_center_p=needle_info[0][i], rot_center_px=P(needle_info[1][i], 0), rot_angle=0,
-            rot_angle_fn=motor_rot_cmd_events[i],
-        ),
-    )
+    # motor_rot_angles_polys.append( # COMMANDED
+    #     PolygonDef(p=[needle_info[0][i]]*4, px=[P(needle_info[1][i], needle_py_sign * 23), P(needle_info[1][i] - 2, needle_py_sign * 25), P(needle_info[1][i], needle_py_sign * 35), P(needle_info[1][i] + 2, needle_py_sign * 25)], 
+    #         fill_color=QColor(0, 0, 0, 0), outline_color=QColor(255, 0, 0, 255), outline_width=1,
+    #         rot_center_p=needle_info[0][i], rot_center_px=P(needle_info[1][i], 0), rot_angle=0,
+    #         rot_angle_fn=motor_rot_cmd_events[i],
+    #     ),
+    # )
     motor_rot_angles_polys.append( # REAL FILL
         PolygonDef(p=[needle_info[0][i]]*4, px=[P(needle_info[1][i], needle_py_sign * 23), P(needle_info[1][i] - 2, needle_py_sign * 25), P(needle_info[1][i], needle_py_sign * 35), P(needle_info[1][i] + 2, needle_py_sign * 25)], 
             gradient=get_gradient('alt_color_outline'), fill_color=QColor(0, 0, 0, 0), outline_width=2, 

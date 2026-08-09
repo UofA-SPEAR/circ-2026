@@ -59,15 +59,42 @@ def _djs_field(joint_name: str, interface_name: str) -> Callable[[Any], Optional
     return _extractor
 
 _JOINT_STATE_INTERFACES = {
+    # ARM
     'joint_1': ['position', 'velocity', 'bus_voltage', 'current', 'velocity_demand', 'torque_demand', 'position_demand', 'touch_probe_status', 'digital_inputs', 'status_word', 'mode_of_operation', 'error_code'],
     'joint_2': ['position', 'velocity', 'bus_voltage', 'current', 'velocity_demand', 'torque_demand', 'position_demand', 'touch_probe_status', 'digital_inputs', 'status_word', 'mode_of_operation', 'error_code'],
     'joint_3': ['position', 'velocity', 'bus_voltage', 'current', 'velocity_demand', 'torque_demand', 'position_demand', 'touch_probe_status', 'digital_inputs', 'status_word', 'mode_of_operation', 'error_code'],
     'joint_4': ['position', 'velocity', 'bus_voltage', 'current', 'velocity_demand', 'torque_demand', 'position_demand', 'touch_probe_status', 'digital_inputs', 'status_word', 'mode_of_operation', 'error_code'],
     'joint_5': ['position', 'velocity', 'bus_voltage', 'current', 'velocity_demand', 'torque_demand', 'position_demand', 'touch_probe_status', 'digital_inputs', 'status_word', 'mode_of_operation', 'error_code'],
     'joint_6': ['status_word', 'position', 'velocity'],
+
+    # # SCIENCE
+    # 'something_1': ['status_word', 'position', 'velocity', 'current'],
+    # 'something_2': ['status_word', 'position', 'velocity', 'current'],
+    # 'something_3': ['motor_1_enabled'],
 }
 
+_GRIPPER_JOINT_STATE_INTERFACES = {
+    # ARM
+    'joint_7': ['status_word', 'position', 'velocity', 'current'],
+}
 
+_DRIVE_JOINT_STATE_INTERFACES = {
+    # DRIVE
+    'drive_fl': ['status_word', 'position', 'velocity', 'current'],
+    'drive_fr': ['status_word', 'position', 'velocity', 'current'],
+    'drive_ml': ['status_word', 'position', 'velocity', 'current'],
+    'drive_mr': ['status_word', 'position', 'velocity', 'current'],
+    'drive_bl': ['status_word', 'position', 'velocity', 'current'],
+    'drive_br': ['status_word', 'position', 'velocity', 'current'],
+}
+
+_STEER_JOINT_STATE_INTERFACES = {
+    # DRIVE
+    'steer_fl': ['status_word', 'position', 'velocity', 'current'],
+    'steer_fr': ['status_word', 'position', 'velocity', 'current'],
+    'steer_bl': ['status_word', 'position', 'velocity', 'current'],
+    'steer_br': ['status_word', 'position', 'velocity', 'current'],
+}
 
 # ──────────────────────── Subscriptions ──────────────────────────
 @dataclass
@@ -112,7 +139,8 @@ class SubscriptionManager:
         return {name: ch.snapshot() for name, ch in self._channels.items()}
 
 ENABLE_TEST_SUBSCRIPTIONS = True # <-- IMPORTANT! CHANGE TO FALSE WHEN DONE TESTING! MUST BE FALSE TO READ ROS2 SUBSCRIPTIONS!
-print('[main_gui] Using test subscriptions. Set ENABLE_TEST_SUBSCRIPTIONS to False if you intended to read ros2 subscriptions.')
+if ENABLE_TEST_SUBSCRIPTIONS:
+    print('[main_gui] Using test subscriptions. Set ENABLE_TEST_SUBSCRIPTIONS to False if you intended to read ros2 subscriptions.')
 
 TEST_SUBSCRIPTION_CONFIGS = [
     SubscriptionConfig(topic=f'main/test_value{i}', channel_name=f'test_value{i}', max_samples=50) for i in range(1, 10)
@@ -124,8 +152,19 @@ ROS_SUBSCRIPTION_CONFIGS = [
 if _HAVE_CONTROL_MSGS:
     ROS_SUBSCRIPTION_CONFIGS += [
         SubscriptionConfig(topic='/dynamic_joint_states', channel_name=f'{joint}_{iface}', msg_type=DynamicJointState, extractor=_djs_field(joint, iface), max_samples=100)
-        for joint, ifaces in _JOINT_STATE_INTERFACES.items()
-        for iface in ifaces
+        for joint, ifaces in _JOINT_STATE_INTERFACES.items() for iface in ifaces
+    ]
+    ROS_SUBSCRIPTION_CONFIGS += [
+        SubscriptionConfig(topic='/jsb_gripper/dynamic_joint_states', channel_name=f'{joint}_{iface}', msg_type=DynamicJointState, extractor=_djs_field(joint, iface), max_samples=100)
+        for joint, ifaces in _GRIPPER_JOINT_STATE_INTERFACES.items() for iface in ifaces
+    ]
+    ROS_SUBSCRIPTION_CONFIGS += [
+        SubscriptionConfig(topic='/jsb_drive/dynamic_joint_states', channel_name=f'{joint}_{iface}', msg_type=DynamicJointState, extractor=_djs_field(joint, iface), max_samples=100)
+        for joint, ifaces in _DRIVE_JOINT_STATE_INTERFACES.items() for iface in ifaces
+    ]
+    ROS_SUBSCRIPTION_CONFIGS += [
+        SubscriptionConfig(topic='/jsb_steer/dynamic_joint_states', channel_name=f'{joint}_{iface}', msg_type=DynamicJointState, extractor=_djs_field(joint, iface), max_samples=100)
+        for joint, ifaces in _STEER_JOINT_STATE_INTERFACES.items() for iface in ifaces
     ]
 
 SUBSCRIPTION_CONFIGS = ((TEST_SUBSCRIPTION_CONFIGS if ENABLE_TEST_SUBSCRIPTIONS else []) + ROS_SUBSCRIPTION_CONFIGS)
