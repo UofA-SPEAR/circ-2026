@@ -803,6 +803,8 @@ map_display_window = WindowDef(
             value_fn=lambda ctx: (get_event('route_active').value, get_event('map_pos_x').value, get_event('map_pos_y').value),
             targets=[], passthrough=True, transform=_route_tick,
         ),
+        EventListener(value_fn=lambda ctx: ctx['latitude']['latest'], targets=[get_event('pos_y').value], passthrough=True),
+        EventListener(value_fn=lambda ctx: ctx['longitude']['latest'], targets=[get_event('pos_x').value], passthrough=True),
     ],
     polygon_defs=[
         RectDef(p1=P(0.0, 0.0), p2=P(1.0, 1.0), fill_color=QColor(255, 255, 255, 10), outline_color=QColor(255, 255, 255, 255), outline_width=1),

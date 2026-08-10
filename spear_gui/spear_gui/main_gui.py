@@ -96,6 +96,7 @@ _STEER_JOINT_STATE_INTERFACES = {
     'steer_br': ['status_word', 'position', 'velocity', 'current'],
 }
 
+
 # ──────────────────────── Subscriptions ──────────────────────────
 @dataclass
 class SubscriptionConfig:
@@ -138,7 +139,7 @@ class SubscriptionManager:
     def context(self) -> Dict[str, Dict[str, Any]]:
         return {name: ch.snapshot() for name, ch in self._channels.items()}
 
-ENABLE_TEST_SUBSCRIPTIONS = True # <-- IMPORTANT! CHANGE TO FALSE WHEN DONE TESTING! MUST BE FALSE TO READ ROS2 SUBSCRIPTIONS!
+ENABLE_TEST_SUBSCRIPTIONS = False # <-- IMPORTANT! CHANGE TO FALSE WHEN DONE TESTING! MUST BE FALSE TO READ ROS2 SUBSCRIPTIONS!
 if ENABLE_TEST_SUBSCRIPTIONS:
     print('[main_gui] Using test subscriptions. Set ENABLE_TEST_SUBSCRIPTIONS to False if you intended to read ros2 subscriptions.')
 
@@ -148,6 +149,8 @@ TEST_SUBSCRIPTION_CONFIGS = [
 
 ROS_SUBSCRIPTION_CONFIGS = [
     SubscriptionConfig(topic='chatter', channel_name='chatter_msg', msg_type=String, extractor=lambda msg: msg.data, max_samples=100, unit='A'),
+    SubscriptionConfig(topic='gps/latitude', channel_name='latitude', msg_type=Float64, extractor=lambda msg: msg.data, max_samples=100, unit=''),
+    SubscriptionConfig(topic='gps/longitude', channel_name='longitude', msg_type=Float64, extractor=lambda msg: msg.data, max_samples=100, unit=''),
 ]
 if _HAVE_CONTROL_MSGS:
     ROS_SUBSCRIPTION_CONFIGS += [
