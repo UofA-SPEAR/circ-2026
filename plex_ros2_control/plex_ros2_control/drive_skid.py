@@ -35,7 +35,7 @@ IN_PLACE_STEER_BUTTON = 4
 MAX_SPEED = 2.0 # m/s at full throttle
 MAX_SPEED_IN_PLACE_STEER = 0.5 # how fast the wheels move (m/s) at max deflection during in-place steering
 
-SAFETY_TIMEOUT = 1.5 # after this many seconds of no joy update, stop
+SAFETY_TIMEOUT = 1.0 # after this many seconds of no joy update, stop
 RATE_HZ = 50
 
 def remap_range(value: float, old_range: tuple, new_range: tuple, clip_output: bool = True):
