@@ -99,7 +99,7 @@ LEGACY_ROTATE_ANGLES = {
 # --- Tunables -----------------------------------------------------------------
 
 PUBLISH_RATE = 50.0         # Hz
-VELOCITY_LIMIT = 0.5        # m/s, cap applied to the FASTEST wheel
+VELOCITY_LIMIT = 2        # m/s, cap applied to the FASTEST wheel
 
 # Steering geometry is deliberately independent of throttle. This is the
 # reference speed the turn radius is derived from: r = REFERENCE_SPEED / omega.
@@ -111,7 +111,7 @@ REFERENCE_SPEED = 1.0
 # ever raised. Must stay comfortably above HALF_TRACK.
 MIN_TURN_RADIUS = 0.60
 
-MAX_ANGULAR_SPEED = 1.0     # rad/s at full steering stick
+MAX_ANGULAR_SPEED = 2.0     # rad/s at full steering stick
 
 # Lookup table resolution over the omega range. 401 entries across +/-1.0 rad/s
 # gives 0.005 rad/s steps, far finer than the stick or the modules resolve.
@@ -131,7 +131,7 @@ MODE_SETTLE_TIME = 0.5
 
 # Flip these if the URDF joint axes are mirrored on one side.
 INVERT_RIGHT_DRIVE = False
-INVERT_STEERING = False
+INVERT_STEERING = True
 
 # Joy indices
 AXIS_THROTTLE = 1
@@ -308,7 +308,7 @@ class KippDriveController(Node):
         throttle = clamp(throttle, 0.0, 1.0)
         self.throttle = 0.0 if throttle < THROTTLE_DEADBAND else throttle
 
-        steering = msg.axes[AXIS_STEERING]
+        steering = msg.axes[AXIS_STEERING] * -1.0
         self.steering = 0.0 if abs(steering) < STEERING_DEADBAND else steering
 
         # 3-position switch. The two buttons are mutually exclusive, but guard

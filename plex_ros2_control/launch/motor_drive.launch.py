@@ -133,17 +133,17 @@ def generate_launch_description():
 
         jsb_spawner,
         jsb_gripper_spawner,
-        # jsb_drive_spawner,
-        # jsb_steering_spawner,
+        jsb_drive_spawner,
+        jsb_steering_spawner,
 
 
 
 
 
-        # steer_position_controller_spawner,
+        steer_position_controller_spawner,
+        drive_velocity_controller_spawner,
         velocity_controller_spawner,
         gripper_current_controller_spawner,
-        # drive_velocity_controller_spawner,
         # steer_velocity_controller_spawner,
     ]
 

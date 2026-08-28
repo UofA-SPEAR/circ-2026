@@ -82,7 +82,7 @@ jsb_steer:
       - steer_fl
       - steer_fr
       # - steer_bl
-      - steer_br
+      # - steer_br
     interfaces:
       - position
       - velocity
@@ -117,7 +117,7 @@ steer_position_controller:
     joints:
       - steer_fl
       - steer_fr
-      - steer_br
+      # - steer_br
 
 steer_velocity_controller:
   ros__parameters:

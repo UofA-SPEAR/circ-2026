@@ -27,7 +27,7 @@
     <!--.........................arm.............................-->
 
 
-      <joint name="joint_1">
+      <!-- <joint name="joint_1">
         <state_interface name="position"/>
         <state_interface name="velocity"/>
         <state_interface name="bus_voltage"/>
@@ -45,7 +45,7 @@
           <ec_module name="ZeroErr_joint_1">
           <plugin>ethercat_generic_plugins/EcCiA402Drive</plugin>
           <param name="alias">0</param>
-          <param name="position">0</param>
+          <param name="position">8</param>
           <param name="mode_of_operation">9</param>
           <param name="slave_config">$(find plex_ethercat)/config/zeroerr_config.yaml</param>
         </ec_module>
@@ -68,7 +68,7 @@
           <ec_module name="ZeroErr_joint_2">
           <plugin>ethercat_generic_plugins/EcCiA402Drive</plugin>
           <param name="alias">0</param>
-          <param name="position">1</param>
+          <param name="position">9</param>
           <param name="mode_of_operation">9</param>
           <param name="slave_config">$(find plex_ethercat)/config/zeroerr_config.yaml</param>
         </ec_module>
@@ -91,7 +91,7 @@
         <ec_module name="ZeroErr_joint_3">
           <plugin>ethercat_generic_plugins/EcCiA402Drive</plugin>
           <param name="alias">0</param>
-          <param name="position">2</param>
+          <param name="position">10</param>
           <param name="mode_of_operation">9</param>
           <param name="slave_config">$(find plex_ethercat)/config/zeroerr_config.yaml</param>
         </ec_module>
@@ -114,7 +114,7 @@
         <ec_module name="ZeroErr_joint_4">
           <plugin>ethercat_generic_plugins/EcCiA402Drive</plugin>
           <param name="alias">0</param>
-          <param name="position">3</param>
+          <param name="position">11</param>
           <param name="mode_of_operation">9</param>
           <param name="slave_config">$(find plex_ethercat)/config/zeroerr_config.yaml</param>
         </ec_module>
@@ -137,7 +137,7 @@
         <ec_module name="ZeroErr_joint_5">
           <plugin>ethercat_generic_plugins/EcCiA402Drive</plugin>
           <param name="alias">0</param>
-          <param name="position">4</param>
+          <param name="position">12</param>
           <param name="mode_of_operation">9</param>
           <param name="slave_config">$(find plex_ethercat)/config/zeroerr_config.yaml</param>
         </ec_module>
@@ -152,10 +152,10 @@
         <ec_module name="Stepper_joint_6">
           <plugin>ethercat_generic_plugins/GenericEcSlave</plugin>
           <param name="alias">0</param>
-          <param name="position">5</param>
+          <param name="position">13</param>
           <param name="slave_config">$(find plex_ethercat)/config/stepper_config.yaml</param>
         </ec_module>
-      </joint>
+      </joint> -->
 
 
 
@@ -168,7 +168,7 @@
     <!--.........................gripper.............................-->
 
 
-      <joint name="joint_7">
+      <!-- <joint name="joint_7">
         <command_interface name="control_word"/>
         <command_interface name="position"/>
         <command_interface name="velocity"/>
@@ -180,10 +180,10 @@
         <ec_module name="gripper_1">
           <plugin>ethercat_generic_plugins/GenericEcSlave</plugin>
           <param name="alias">0</param>
-          <param name="position">6</param>
+          <param name="position">14</param>
           <param name="slave_config">$(find plex_ethercat)/config/dc_config.yaml</param>
         </ec_module>
-      </joint>
+      </joint> -->
 
 
 
@@ -198,7 +198,7 @@
     <!--.........................drive.............................-->
 
 
-      <!-- <joint name="drive_fl">
+       <joint name="drive_fl">
         <command_interface name="control_word"/>
         <command_interface name="position"/>
         <command_interface name="velocity"/>
@@ -210,11 +210,11 @@
         <ec_module name="motor_1">
           <plugin>ethercat_generic_plugins/GenericEcSlave</plugin>
           <param name="alias">0</param>
-          <param name="position">99</param>
-          <param name="slave_config">$(find plex_ethercat)/config/dc_vel_config.yaml</param>
+          <param name="position">1</param>
+          <param name="slave_config">$(find plex_ethercat)/config/dc_vel_config-inverted.yaml</param>
         </ec_module>
-      </joint> -->
-<!--
+      </joint> 
+
        <joint name="drive_fr">
         <command_interface name="control_word"/>
         <command_interface name="position"/>
@@ -227,7 +227,7 @@
         <ec_module name="motor_2">
           <plugin>ethercat_generic_plugins/GenericEcSlave</plugin>
           <param name="alias">0</param>
-          <param name="position">99</param>
+          <param name="position">6</param>
           <param name="slave_config">$(find plex_ethercat)/config/dc_vel_config.yaml</param>
         </ec_module>
       </joint>
@@ -244,8 +244,8 @@
         <ec_module name="motor_3">
           <plugin>ethercat_generic_plugins/GenericEcSlave</plugin>
           <param name="alias">0</param>
-          <param name="position">99</param>
-          <param name="slave_config">$(find plex_ethercat)/config/dc_vel_config.yaml</param>
+          <param name="position">2</param>
+          <param name="slave_config">$(find plex_ethercat)/config/dc_vel_config-inverted.yaml</param>
         </ec_module>
       </joint>
 
@@ -261,7 +261,7 @@
         <ec_module name="motor_4">
           <plugin>ethercat_generic_plugins/GenericEcSlave</plugin>
           <param name="alias">0</param>
-          <param name="position">99</param>
+          <param name="position">7</param>
           <param name="slave_config">$(find plex_ethercat)/config/dc_vel_config.yaml</param>
         </ec_module>
       </joint>
@@ -278,8 +278,8 @@
         <ec_module name="motor_5">
           <plugin>ethercat_generic_plugins/GenericEcSlave</plugin>
           <param name="alias">0</param>
-          <param name="position">99</param>
-          <param name="slave_config">$(find plex_ethercat)/config/dc_vel_config.yaml</param>
+          <param name="position">3</param>
+          <param name="slave_config">$(find plex_ethercat)/config/dc_vel_config-inverted.yaml</param>
         </ec_module>
       </joint>
 
@@ -295,31 +295,10 @@
         <ec_module name="motor_6">
           <plugin>ethercat_generic_plugins/GenericEcSlave</plugin>
           <param name="alias">0</param>
-          <param name="position">99</param>
+          <param name="position">5</param>
           <param name="slave_config">$(find plex_ethercat)/config/dc_vel_config.yaml</param>
         </ec_module>
       </joint>
-
--->
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
 
 
@@ -327,8 +306,7 @@
 
 <!--.........................steering.............................-->
 
-<!--
-      <joint name="steer_fl">
+      <!-- <joint name="steer_fl">
         <command_interface name="control_word"/>
         <command_interface name="position"/>
         <command_interface name="velocity"/>
@@ -338,7 +316,7 @@
         <ec_module name="steer_1">
           <plugin>ethercat_generic_plugins/GenericEcSlave</plugin>
           <param name="alias">0</param>
-          <param name="position">99</param>
+          <param name="position">2</param>
           <param name="slave_config">$(find plex_ethercat)/config/stepper_pos_config.yaml</param>
         </ec_module>
       </joint>
@@ -353,11 +331,12 @@
         <ec_module name="steer_2">
           <plugin>ethercat_generic_plugins/GenericEcSlave</plugin>
           <param name="alias">0</param>
-          <param name="position">99</param>
+          <param name="position">7</param>
           <param name="slave_config">$(find plex_ethercat)/config/stepper_pos_config.yaml</param>
         </ec_module>
-      </joint>
+      </joint> -->
 
+      <!--
       <joint name="steer_bl">
         <command_interface name="control_word"/>
         <command_interface name="position"/>
@@ -371,9 +350,9 @@
           <param name="position">99</param>
           <param name="slave_config">$(find plex_ethercat)/config/stepper_pos_config.yaml</param>
         </ec_module>
-      </joint>
+      </joint> -->
 
-      <joint name="steer_br">
+      <!-- <joint name="steer_br">
         <command_interface name="control_word"/>
         <command_interface name="position"/>
         <command_interface name="velocity"/>
@@ -383,11 +362,10 @@
         <ec_module name="steer_4">
           <plugin>ethercat_generic_plugins/GenericEcSlave</plugin>
           <param name="alias">0</param>
-          <param name="position">99</param>
+          <param name="position">17</param>
           <param name="slave_config">$(find plex_ethercat)/config/stepper_pos_config.yaml</param>
         </ec_module>
-      </joint>
--->
+      </joint> -->
     </ros2_control>
   </xacro:macro>
 </robot>

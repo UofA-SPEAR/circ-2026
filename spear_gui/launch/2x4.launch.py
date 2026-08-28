@@ -5,7 +5,7 @@ from launch_ros.actions import Node
 
 def generate_launch_description():
 
-    receiver_ip = "192.168.1.10"
+    receiver_ip = "192.168.10.10"
     bitrate = 4000000
 
     # zedsrc goes first and alone: it is the slowest to init and loses the

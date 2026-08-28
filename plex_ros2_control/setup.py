@@ -30,6 +30,8 @@ setup(
         'console_scripts': [
             'drive_teleop = plex_ros2_control.drive_teleop:main',
             'drive_nathan = plex_ros2_control.drive_nathan:main',
+            'plex_drive = plex_ros2_control.plex_drive:main',
+            'drive_skid = plex_ros2_control.drive_skid:main',
         ],
     },
 )

@@ -15,7 +15,7 @@ setup(
         ('share/' + package_name, ['package.xml']),
         (os.path.join('share', package_name, 'launch'), glob(os.path.join('launch', '*.py'))),
     ],
-    install_requires=['setuptools', 'psutil'],
+    install_requires=['setuptools', 'psutil', 'pyserial', 'pynmea2'],
     zip_safe=True,
     maintainer='spearua',
     maintainer_email='nathanc54@shaw.ca',
@@ -29,6 +29,7 @@ setup(
     entry_points={
         'console_scripts': [
             'system_stats = plex_sensors.system_stats:main',
+            'gps = plex_sensors.gps:main',
         ],
     },
 )

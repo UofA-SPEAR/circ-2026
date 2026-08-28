@@ -20,15 +20,15 @@ rpdo:  # TxPDO = transmit PDO Mapping
   - index: 0x1600
     channels:
       - {index: 0x7000, sub_index: 1, type: uint32, command_interface: control_word,                   default: 3}
-      - {index: 0x7000, sub_index: 2, type: int32,  command_interface: position,     factor: 31831.0, default: 0}
-      - {index: 0x7000, sub_index: 3, type: int32,  command_interface: velocity,     factor: 31831.0, default: 0}
+      - {index: 0x7000, sub_index: 2, type: int32,  command_interface: position,     factor: -31831.0, default: 0}
+      - {index: 0x7000, sub_index: 3, type: int32,  command_interface: velocity,     factor: -31831.0, default: 0}
 
 tpdo:  # RxPDO = receive PDO Mapping
   - index: 0x1A00
     channels:
       - {index: 0x6000, sub_index: 1, type: uint32, state_interface: status_word,                      default: 0}
-      - {index: 0x6000, sub_index: 2, type: int32,  state_interface: position,       factor: 0.0000314159153, default: 0}
-      - {index: 0x6000, sub_index: 3, type: int32,  state_interface: velocity,       factor: 0.0000314159153, default: 0}
+      - {index: 0x6000, sub_index: 2, type: int32,  state_interface: position,       factor: -0.0000314159153, default: 0}
+      - {index: 0x6000, sub_index: 3, type: int32,  state_interface: velocity,       factor: -0.0000314159153, default: 0}
 
 sm:  # Sync Manager
   - {index: 0, type: output, pdo: ~,    watchdog: disable}
