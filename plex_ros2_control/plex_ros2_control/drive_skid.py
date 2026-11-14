@@ -11,25 +11,25 @@ class Wheel:
 
 
 WHEELS = [
-    Wheel(name="front_left", is_right=False),
-    Wheel(name="front_right", is_right=True),
-    Wheel(name="mid_left", is_right=False),
-    Wheel(name="mid_right", is_right=True),
-    Wheel(name="back_left", is_right=False),
-    Wheel(name="back_right", is_right=True),
+    Wheel(name="front_left", is_right=True),
+    Wheel(name="mid_right", is_right=False),
+    Wheel(name="mid_left", is_right=True),
+    Wheel(name="back_right", is_right=False),
+    Wheel(name="back_left", is_right=True),
+    Wheel(name="front_right", is_right=False),
 ]
 WHEEL_RADIUS_M = 0.0889
 
 
-THROTTLE_AXIS = 1
+THROTTLE_AXIS = 5
 THROTTLE_DEADBAND_PCT = 0.015 # under this % throttle, consider 0
 
-STEER_AXIS = 3
+STEER_AXIS = 0
 STEER_DEADBAND_PCT = 0.05 # under this % steer either side, consider 0
 STEER_POWER = 1.0 # float (0,1] controlling how powerfully to steer while moving
 
-FORWARD_BUTTON = 2
-REVERSE_BUTTON = 3
+FORWARD_BUTTON = 0
+REVERSE_BUTTON = 1
 IN_PLACE_STEER_BUTTON = 4
 
 MAX_SPEED = 2.0 # m/s at full throttle
@@ -56,7 +56,7 @@ class SkidDrive(Node):
         self.last_joy_time = None
 
         self.drive_pub = self.create_publisher(Float64MultiArray, "/drive_velocity_controller/commands", 10)
-        self.create_subscription(Joy, "/joy_drive", self.joy_callback, 10)
+        self.create_subscription(Joy, "/joy", self.joy_callback, 10)
 
         self.create_timer(1.0 / RATE_HZ, self.check_timeout)
 
