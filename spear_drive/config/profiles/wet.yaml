@@ -1,0 +1,18 @@
+spear_drive_controller:
+  ros__parameters:
+    # Conservative wet/mud starting values. Tune on representative ground.
+    max_linear_speed: 0.35
+    max_yaw_rate: 0.40
+    max_linear_acceleration: 0.22
+    max_linear_deceleration: 0.55
+    max_yaw_acceleration: 0.40
+    max_jerk: 0.90
+    max_motor_current: 1.4
+    yaw_feedback_gain: 0.18
+    slip_ratio_threshold: 0.18
+    minimum_traction_scale: 0.20
+
+drive_teleop:
+  ros__parameters:
+    max_linear_speed: 0.35
+    max_yaw_rate: 0.40

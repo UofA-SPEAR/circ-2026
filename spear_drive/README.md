@@ -1,0 +1,416 @@
+# SPEAR drivetrain control
+
+`spear_drive` is a self-contained ROS 2 package for the CIRC rover's six driven
+wheels, four steering actuators, relative steering encoders, motor-side wheel
+encoders, and the rover's ZED X IMU. It contains the controller, teleop,
+configuration, mock hardware, tests, and a Xacro macro for the ten drivetrain
+slaves.
+
+This review branch adds only `spear_drive`; it deliberately does not modify
+`plex_ethercat`, `plex_ros2_control`, or bringup packages. Live hardware must
+append the supplied actuator macro inside the existing EtherCAT master. It must
+not start a second master for the drivetrain.
+
+## What current main contains
+
+This branch is based on `origin/main` commit `02c60b2`. At that revision:
+
+- `plex_ethercat/config/dc_config.yaml` contains a brushed-DC PDO draft;
+- `motor_drive.ros2_control.xacro` exposes one bench joint named `drive_1` at
+  slave position `0`;
+- the six arm joints are commented out in that Xacro; and
+- there is no six-wheel/four-steering controller or ten-actuator mapping.
+
+Therefore, this package can be built and mock-tested by itself, but
+`load_drive_controller.launch.py` cannot activate against current main until
+the team merges the shared-master integration described below.
+
+## Implemented
+
+- Four-wheel coordinated steering using parameterized wheel coordinates.
+- Six independent motor-current outputs with motor-side encoder scaling, gear
+  ratio, direction, wheel radius, speed, acceleration, deceleration, jerk, and
+  current limits.
+- Steering-to-drive alignment gating to avoid loading the frame while the
+  wheels are still turning.
+- Per-wheel overspeed/slip current reduction and IMU yaw feedback.
+- Encoder odometry and drivetrain diagnostics.
+- Command and IMU freshness checks local to the rover controller.
+- Drive and steering encoder loss is separated from actuator loss. Sensor loss
+  preserves the selected speed profile and leaves working motors commanded.
+- A drive motor with missing encoder feedback copies normalized current from
+  healthy peers. If every wheel encoder is lost, the controller retains and
+  scales each motor's last operating current, then uses bounded proportional
+  current when no operating sample exists.
+- Steering position commands continue open-loop when steering feedback is lost.
+- Five-wheel and balanced four-wheel modes remain for an actuator that actually
+  reports unavailable, rather than for a missing encoder.
+- An isolated drive joystick topic with release-before-arm, neutral hold,
+  held deadman, precision mode, single-publisher check, and timeout.
+- Mock hardware and dependency-free core tests.
+
+## ROS interfaces
+
+| Interface | Purpose |
+|---|---|
+| `/spear_drive_controller/cmd_vel` (`TwistStamped`) | Rover linear and yaw command |
+| `/zed/zed_node/imu/data` (`Imu`) | ZED X yaw-rate feedback, parameterized with `imu_topic` |
+| `/spear_drive_controller/odom` (`Odometry`) | Encoder-based rover odometry |
+| `/spear_drive_controller/diagnostics` (`DiagnosticArray`) | Mode, health, current and freshness |
+| `/spear_drive_controller/zero_steering` (`Trigger`) | Capture straight relative-encoder zero |
+| `/drive/joy` (`Joy`) | Dedicated drive gamepad input |
+
+The controller claims `current` and `control_word` command interfaces for six
+drive joints and `position` command interfaces for four steering joints.
+
+This is the foundation for traction control, not a magic replacement for test
+data. Collective wheel slip cannot be identified reliably from wheel encoders
+alone. The IMU improves yaw control; a good terrain-speed estimate would improve
+longitudinal slip estimation later.
+
+## Deliberate limitations
+
+- The controller uses planar wheel-contact geometry. It does not estimate
+  rocker-bogie articulation, wheel normal force, suspension load transfer, or
+  chassis stress because no suspension/load sensors are currently specified.
+- The traction limiter detects a wheel overspeeding its requested velocity. It
+  cannot detect all six wheels slipping together without an independent ground
+  speed estimate.
+- The current PDO has no motor temperature or explicit hardware-fault field.
+  Status, current and duty cycle are monitored; richer fault handling requires
+  an embedded PDO revision.
+- Relative steering zero is captured from a mechanically straight startup
+  position. This is not a substitute for absolute encoders or limit switches.
+- A motor with no encoder cannot have independent closed-loop speed control.
+  Healthy peer encoders preserve chassis-level regulation; if every drive
+  encoder is lost, speed is no longer observable and the controller necessarily
+  falls back to open-loop current. `encoderless_full_speed_current` must be tuned.
+- With missing steering feedback, the controller cannot verify actual wheel
+  angle or alignment. It continues sending position commands on the assumption
+  that the stepper and EtherCAT slave still work.
+- Sensor-continuation modes require deliberate hardware fault-injection testing
+  before competition use.
+
+## Failure behavior
+
+Sensor faults never select the crawl profile or multiply the motion request by a
+reduced-speed factor. They change diagnostics to `SENSOR_DEGRADED` while retaining
+the limits of the profile selected by the operator. Diagnostics include each
+drive controller's availability, every drive/steering encoder health flag,
+`imu_fresh`, and whether odometry is still based on measured feedback.
+
+| Failure | Drive behavior | Diagnostic |
+|---|---|---|
+| ZED X IMU missing/stale | Full selected profile; yaw feedback term disabled | `SENSOR_DEGRADED` |
+| One or more drive encoders invalid | Motors stay enabled; healthy same-side effort is copied, then any healthy peer | `SENSOR_DEGRADED` |
+| All drive encoders invalid | Retain/scale last motor currents, then bounded open-loop current; odometry uses commanded linear speed and IMU/commanded yaw | `SENSOR_DEGRADED` |
+| Steering encoder invalid | Continue desired position commands open-loop; ignore missing measurement in alignment gating | `SENSOR_DEGRADED` |
+| Motor controller reports unavailable | Isolate that actuator; retain the configured 5WD/4WD actuator-failure policy | `DEGRADED_5WD`, `DEGRADED_4WD`, or `FAULT_STOP` |
+| EtherCAT master unavailable or drive command stale | Zero motor current | `FAULT_STOP` or `READY` |
+
+## ZED X IMU
+
+The controller is configured to monitor the standard ZED ROS 2 wrapper topic
+`/zed/zed_node/imu/data` by default. The ZED wrapper constructs that name as
+`/<camera_name>/<node_name>/imu/data`; if either launch name changes, update
+`imu_topic` in `config/drive_controller.yaml` or remap it during system bringup.
+
+The existing `spear_gui` GStreamer camera sender does not publish
+`sensor_msgs/Imu`. A plugged-in camera is therefore not sufficient by itself:
+the ZED ROS 2 wrapper (or another node publishing the same message) must own the
+selected camera and publish its sensor stream. In the wrapper configuration,
+ensure `sensors.publish_imu` is enabled. Verify the live contract before loading
+the drive controller:
+
+```bash
+ros2 topic list | grep '/imu/data'
+ros2 topic info /zed/zed_node/imu/data --verbose
+ros2 topic hz /zed/zed_node/imu/data
+ros2 topic echo /zed/zed_node/imu/data --once
+```
+
+The message must be `sensor_msgs/msg/Imu`, its `angular_velocity.z` sign must be
+positive for a counter-clockwise rover yaw, and the camera must be rigidly
+mounted with its IMU Z axis aligned with `base_link` Z. Confirm that sign with
+the wheels off the ground before enabling yaw feedback. If the camera is mounted
+in another orientation, transform the IMU stream into `base_link` rather than
+silently changing the feedback sign in this controller.
+
+If the ZED process or camera disappears, the controller disables only the IMU
+yaw correction. It selects full-command `SENSOR_DEGRADED` mode and continues
+encoder-only driving without reducing the selected profile limits. The current
+mode and `imu_fresh` flag are exposed in diagnostics.
+
+## No hidden actuation switch
+
+There is no `allow_actuation` parameter or extra enable service. Loading and
+activating `spear_drive_controller` is the software-enable step. Releasing the
+drive joystick deadman publishes zero immediately, and a stale command also
+forces zero current in the controller. Controller activation writes the brushed
+motor control word `6`; deactivation writes current and control word `0`.
+
+The rover still needs its independent physical E-stop/kill system. Software
+timeouts are not a substitute for hardware power removal.
+
+## Required measurements
+
+Replace every placeholder called out in
+[`config/drive_controller.yaml`](config/drive_controller.yaml) before a driven
+test:
+
+1. `wheel_x` and `wheel_y`: each wheel contact centre relative to `base_link`.
+2. Loaded `wheel_radius` for all six wheels.
+3. `drive_gear_ratio`: positive motor revolutions per wheel revolution.
+4. `encoder_counts_per_motor_revolution`: raw STM32 timer counts for one motor
+   shaft revolution.
+5. `steering_gear_ratio`, or `1.0` if embedded reports knuckle angle directly.
+6. `drive_direction` and `steering_direction` signs.
+7. Four steering hard-stop angles with a mechanical safety margin.
+8. Steering offsets after the wheels are mechanically straight.
+9. Allowable motor current and velocity-loop gains in A-based units.
+10. `encoderless_full_speed_current`, `encoder_stale_timeout`, and
+    `encoder_motion_threshold` on the lifted rover and then representative ground.
+
+Because steering encoders are relative, all four wheels must be physically
+straight before controller activation. `auto_zero_on_activate` records that
+position as zero. If a steering encoder is already invalid, its embedded
+position origin is assumed to be zero and subsequent steering commands are
+open-loop. With the deadman released, zero can be captured again with:
+
+```bash
+ros2 service call /spear_drive_controller/zero_steering std_srvs/srv/Trigger '{}'
+```
+
+## EtherCAT contract
+
+The intended full system has the arm on EtherCAT master `0` at slave positions
+`0` through `5`. Current main is temporarily configured as a one-motor bench
+setup, so the following remains a proposed, explicit cable order until the arm
+configuration is restored and the physical bus is inspected:
+
+| Position | Actuator |
+|---:|---|
+| 6–11 | front-left, front-right, middle-left, middle-right, rear-left, rear-right drive |
+| 12–15 | front-left, front-right, rear-left, rear-right steering |
+
+The full mapping is in [`config/actuator_map.yaml`](config/actuator_map.yaml).
+EtherCAT slave `position` is physical bus order, so the actual cable order must
+match it.
+
+Only one `ethercat_driver/EthercatDriver` may own master `0`. The macro in
+[`description/ros2_control/drive_interfaces.ros2_control.xacro`](description/ros2_control/drive_interfaces.ros2_control.xacro)
+must be included and called inside the existing arm `<ros2_control>` system by
+the eventual integration change. Do not start a second master for the
+drivetrain.
+
+The required post-review integration is intentionally not part of this branch:
+
+1. Restore/retain the six arm slaves at positions `0` through `5`.
+2. Include `drive_interfaces.ros2_control.xacro` from the shared
+   `plex_ethercat` description.
+3. Call `spear_drive_ethercat_joints` inside that same `<ros2_control>` block.
+4. Pass this package's `brushed_dc_config.yaml` for positions `6`–`11` and the
+   confirmed steering-stepper configuration for positions `12`–`15`.
+5. Remove the temporary single `drive_1` bench joint before enabling the full
+   bus, then load `spear_drive_controller` through the existing controller
+   manager.
+
+The intended Xacro wiring is:
+
+```xml
+<xacro:include filename="$(find spear_drive)/description/ros2_control/drive_interfaces.ros2_control.xacro"/>
+
+<xacro:spear_drive_ethercat_joints
+  drive_slave_config="$(find spear_drive)/config/brushed_dc_config.yaml"
+  steering_slave_config="$(find plex_ethercat)/config/stepper_config.yaml"/>
+```
+
+The include itself belongs at the robot/Xacro document level; the macro call
+belongs inside the one shared EtherCAT `<ros2_control>` system.
+
+The brushed-DC PDO is implemented in
+[`config/brushed_dc_config.yaml`](config/brushed_dc_config.yaml), matching
+`motor-controller-brushed-dc` commit
+`1702cbe7d81f34de155ea2573bf81ba8727dde9d`. It uses:
+
+- `0x7000:01` control word and `0x7000:02` target current in mA;
+- `0x6000:01` status, `:02` current in mA, `:03` encoder counts/s,
+  `:04` encoder counts, and `:05` duty cycle;
+- embedded current mode `0`, a 3 A firmware current limit, and a roughly 100 ms
+  EtherCAT watchdog.
+
+This is intentionally more specific than current main's bench
+`plex_ethercat/config/dc_config.yaml`: that file labels the encoder fields as
+scaled `velocity`/`position`, leaves the process-data watchdog disabled, and
+does not set the firmware current mode. Do not combine the two mappings. Before
+merge, compare both against `sudo ethercat pdos` and the firmware flashed onto
+the six controllers. The live controller in this package expects the raw-count
+interface names documented in `actuator_map.yaml`.
+
+The brushed and stepper firmware currently share vendor/product identity
+`0x1337/0x04d2` despite incompatible PDOs. They should receive distinct product
+or revision identities. Until then, bus position and flashed firmware must be
+checked carefully.
+
+Steering provisionally reuses the arm's `stepper_config.yaml`. The supplied
+embedded repositories do not contain the corresponding EtherCAT stepper object
+dictionary, so confirm the four steering boards run the exact arm joint-6
+firmware before connecting drive power.
+
+With actuator power isolated, inspect the physical bus before loading the drive
+controller:
+
+```bash
+sudo ethercat slaves
+sudo ethercat upload -p 6 0x1008 0
+sudo ethercat pdos -p 6
+sudo ethercat pdos -p 12
+```
+
+Positions 6-11 must report `spear_motor_brushed_dc` and the four-output/five-input
+PDO documented above. Compare positions 12-15 against arm stepper position 5;
+their PDO listings must be identical before reusing `stepper_config.yaml`.
+
+For sensor-continuation mode, an encoder fault must not take its EtherCAT slave
+off the bus. The embedded/hardware layer should keep exchanging PDOs, keep the
+motor command interface available, and expose only the failed encoder state as
+non-finite when possible. The controller also recognizes `encoder_counts` that
+remain unchanged longer than `encoder_stale_timeout` while that motor is being
+commanded. If embedded clears the drive-enabled status bit, the controller
+correctly interprets that as an actuator failure and isolates the motor. A
+disconnected slave or lost EtherCAT master remains a system-level stop because
+the controller can no longer send commands to the remaining actuators.
+
+The ROS-facing drive command is current in amperes; the PDO layer multiplies it
+by 1000 for the firmware's mA target. Encoder counts/s are converted to motor
+rad/s in the controller using `encoder_counts_per_motor_revolution`. Steering
+uses relative motor radians; if embedded reports knuckle radians directly, set
+`steering_gear_ratio` to `1.0`.
+
+After verifying the physical bus and steering firmware, physically straighten
+the steering and load/activate this controller with:
+
+```bash
+ros2 launch spear_drive load_drive_controller.launch.py \
+  controller_manager:=/controller_manager profile:=crawl
+```
+
+This loader never creates hardware or a second master; it only asks the existing
+controller manager to claim the drivetrain interfaces and activate the
+controller.
+
+## Build and core tests
+
+On the Jetson's ROS 2 workspace:
+
+```bash
+cd ~/circ-2026
+source /opt/ros/humble/setup.bash
+rosdep install --from-paths . --ignore-src -r -y
+colcon build --symlink-install --packages-select spear_drive
+source install/setup.bash
+colcon test --packages-select spear_drive --event-handlers console_direct+
+colcon test-result --verbose
+```
+
+The core kinematics/fault tests can also be compiled without ROS:
+
+```bash
+c++ -std=c++17 -Wall -Wextra -Wpedantic \
+  -Ispear_drive/include \
+  spear_drive/src/drive_core.cpp spear_drive/src/fault_manager.cpp \
+  spear_drive/test/test_drive_core.cpp -o /tmp/test_drive_core
+/tmp/test_drive_core
+```
+
+## Mock run
+
+The mock uses a separate fake 10-actuator system and never contacts EtherCAT:
+
+```bash
+ros2 launch spear_drive drive_mock.launch.py profile:=crawl
+```
+
+In a second terminal, confirm the controller and diagnostics:
+
+```bash
+source /opt/ros/humble/setup.bash
+source ~/circ-2026/install/setup.bash
+ros2 control list_controllers
+ros2 topic echo /spear_drive_controller/diagnostics
+ros2 topic pub --once /spear_drive_controller/cmd_vel \
+  geometry_msgs/msg/TwistStamped \
+  "{twist: {linear: {x: 0.1}, angular: {z: 0.1}}}"
+```
+
+The generic mock does not simulate rover mass, motor dynamics, or traction; it
+validates ROS loading, interface claiming, steering commands, timeouts, and
+diagnostics.
+
+## Drive joystick
+
+The package provides an isolated drive-only joystick launch:
+
+```bash
+ros2 launch spear_drive drive_teleop.launch.py device_id:=1 profile:=crawl
+```
+
+It defaults to SDL device `1` so device `0` can remain assigned to the arm.
+Drive input publishes only as `/drive/joy`. A future base-station bringup change
+can include this launch after the package review is merged.
+
+The drive gamepad is the only publisher allowed on `/drive/joy`. Verify axis and
+button numbers before enabling hardware:
+
+```bash
+ros2 topic echo /drive/joy
+ros2 topic info /drive/joy --verbose
+```
+
+With ROS `game_controller_node` (SDL), the default mapping is left-stick
+vertical axis `1`, right-stick horizontal axis `2`, right-bumper deadman button
+`5`, and left-bumper precision button `4`.
+Release the deadman once, hold both axes neutral for 0.2 seconds, then hold the
+deadman to drive. Change the mapping in the YAML if the actual controllers
+report different indexes.
+
+The launch accepts `crawl`, `wet`, and `normal` profiles and defaults to
+`normal`. Competition startup should still name a profile explicitly; begin all
+commissioning with an explicit `profile:=crawl`.
+
+For two identical USB gamepads, create stable udev identities based on device
+serial/USB path before competition. Do not rely only on whichever controller
+happens to become `/dev/input/js0` after a reboot.
+
+## Hardware commissioning order
+
+1. Embedded bench test proves PDO units, scaling, directions, and watchdog.
+2. With rover drive power isolated, verify all 10 encoder signs by hand.
+3. Lift all wheels; activate, zero steering, and test one actuator at a time at
+   crawl limits.
+4. Verify E-stop and radio-loss behavior under commanded motion.
+5. Low-speed flat-ground geometry and odometry tuning.
+6. Tune velocity/current limits with current feedback visible. Temperature is
+   not present in the current embedded PDO and must be added before it can be monitored.
+7. Inject each drive encoder, steering encoder, and IMU failure individually;
+   then test total encoder loss and verify `SENSOR_DEGRADED` retains a 1.0
+   `motion_scale` while the fallback currents remain bounded.
+8. Tune the wet profile on representative wet soil, then lock the competition
+   parameter files and record their commit.
+
+Do not use the placeholder encoder, geometry, ratio, or current-limit values for an
+on-ground hardware test.
+
+## Review checklist
+
+- Confirm the physical bus really reserves positions `0`–`5` for the arm and
+  `6`–`15` for the drivetrain.
+- Compare the brushed PDO and units with the exact embedded firmware revision.
+- Confirm steering uses the same PDO as arm joint 6; otherwise supply a separate
+  steering configuration.
+- Replace every parameter marked `PLACEHOLDER` in `drive_controller.yaml`.
+- Verify joystick axes, deadman, neutral-to-arm sequence, and stale-command stop.
+- Tune `encoderless_full_speed_current` and verify encoder-failure current
+  direction on all six motors with the rover lifted.
+- Run the core test and mock launch before connecting actuator power.
+- Lift the rover and commission one actuator at a time using the crawl profile.
